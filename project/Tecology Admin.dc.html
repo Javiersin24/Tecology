@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="tecology-data.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f4f5f7; }
+  a { color: #0A66FF; text-decoration: none; }
+  a:hover { color: #2f80ff; }
+  input, select, textarea, button { font-family: inherit; }
+  .tec-scroll::-webkit-scrollbar { width: 0; height: 0; }
+  .tec-scroll { scrollbar-width: none; }
+  @keyframes tecPop { from { opacity: 0; transform: translateY(10px) scale(.99); } to { opacity: 1; transform: none; } }
+  @keyframes tecFade { from { opacity: 0; } to { opacity: 1; } }
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:#f4f5f7;font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Inter',sans-serif;color:#0a0c14;">
+
+  <!-- Top bar -->
+  <div style="position:sticky;top:0;z-index:30;background:rgba(255,255,255,.82);backdrop-filter:blur(16px);border-bottom:1px solid #e6e6ec;">
+    <div style="max-width:1120px;margin:0 auto;padding:14px 26px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+      <div style="width:32px;height:32px;border-radius:9px;background:#0a1f4a;display:flex;align-items:center;justify-content:center;padding:6px;">
+        <img src="assets/tecology-mark-alpha.png" alt="Tecology" style="width:100%;height:100%;object-fit:contain;filter:brightness(1.6);">
+      </div>
+      <div>
+        <div style="font-size:15px;font-weight:700;letter-spacing:-.01em;line-height:1;">Tecology</div>
+        <div style="font-size:11.5px;color:#8a8f9c;margin-top:2px;">Panel administrativo</div>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:10px;align-items:center;">
+        <button onClick="{{ restoreDemo }}" style="padding:9px 15px;border-radius:10px;border:1px solid #dcdce2;background:#fff;color:#3a3a3f;font-size:12.5px;font-weight:600;cursor:pointer;">↺ Restaurar demo</button>
+        <a href="Tecology Catalogo.dc.html" style="padding:9px 17px;border-radius:10px;background:#0a0c14;color:#fff;font-size:12.5px;font-weight:600;display:inline-block;">Ver catálogo →</a>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:1120px;margin:0 auto;padding:26px 26px 100px;">
+
+    <!-- Stats -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:26px;">
+      <sc-for list="{{ stats }}" as="s" hint-placeholder-count="4">
+        <div style="background:#fff;border:1px solid #ececf1;border-radius:16px;padding:18px 20px;box-shadow:0 8px 22px -18px rgba(0,0,0,.3);">
+          <div style="display:flex;align-items:center;gap:8px;color:#8a8f9c;font-size:12.5px;font-weight:600;">{{ s.icon }} {{ s.label }}</div>
+          <div style="font-size:30px;font-weight:800;letter-spacing:-.03em;margin-top:8px;color:{{ s.color }};">{{ s.value }}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- Tabs -->
+    <div style="display:inline-flex;background:#e9eaef;border-radius:13px;padding:4px;margin-bottom:22px;">
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="2">
+        <button onClick="{{ t.select }}" style="{{ t.style }}">{{ t.label }}</button>
+      </sc-for>
+    </div>
+
+    <!-- ============ PRODUCTS ============ -->
+    <sc-if value="{{ showProducts }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px;">
+        <div class="tec-scroll" style="display:flex;gap:8px;overflow-x:auto;flex:1;min-width:0;">
+          <sc-for list="{{ catPills }}" as="c" hint-placeholder-count="4">
+            <button onClick="{{ c.select }}" style="{{ c.style }}">{{ c.label }} <span style="opacity:.6;font-weight:600;">{{ c.count }}</span></button>
+          </sc-for>
+        </div>
+        <button onClick="{{ newProduct }}" style="padding:11px 20px;border-radius:12px;border:none;background:#0A66FF;color:#fff;font-size:13.5px;font-weight:600;cursor:pointer;box-shadow:0 10px 22px -10px rgba(10,102,255,.6);white-space:nowrap;">+ Nuevo producto</button>
+      </div>
+
+      <div style="background:#eef3ff;border:1px solid #d6e4ff;border-radius:13px;padding:13px 16px;margin-bottom:18px;display:flex;gap:10px;align-items:flex-start;">
+        <span style="font-size:15px;">💡</span>
+        <p style="margin:0;color:#33507d;font-size:12.5px;line-height:1.5;">En el catálogo del evento se muestran las opciones <b>activas</b> ordenadas por nivel. El producto marcado como <b>Recomendado</b> aparece destacado en el centro. Cambie el nivel o desactive un producto aquí — sin tocar código.</p>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <sc-for list="{{ products }}" as="p" hint-placeholder-count="3">
+          <div style="{{ p.rowStyle }}">
+            <div style="width:88px;height:66px;flex:0 0 88px;border-radius:12px;overflow:hidden;background:repeating-linear-gradient(135deg,#f1f3f8,#f1f3f8 8px,#e9edf4 8px,#e9edf4 16px);display:flex;align-items:center;justify-content:center;">
+              <sc-if value="{{ p.hasImg }}" hint-placeholder-val="{{ false }}">
+                <img src="{{ p.img }}" alt="{{ p.name }}" style="width:100%;height:100%;object-fit:cover;">
+              </sc-if>
+              <sc-if value="{{ p.noImg }}" hint-placeholder-val="{{ true }}">
+                <span style="font-size:9px;color:#9aa3b5;letter-spacing:.06em;">sin foto</span>
+              </sc-if>
+            </div>
+
+            <div style="flex:1;min-width:180px;">
+              <div style="font-size:15.5px;font-weight:700;letter-spacing:-.01em;">{{ p.name }}</div>
+              <div style="font-size:12.5px;color:#8a8f9c;margin-top:3px;">{{ p.model }}</div>
+              <div style="font-size:12.5px;color:#5a606e;margin-top:5px;">{{ p.specSummary }}</div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;align-items:flex-start;gap:9px;">
+              <div style="font-size:19px;font-weight:800;color:#12b76a;">{{ p.price }}</div>
+              <!-- tier segmented -->
+              <div style="display:flex;background:#f0f1f5;border-radius:9px;padding:3px;">
+                <sc-for list="{{ p.tierOpts }}" as="to" hint-placeholder-count="3">
+                  <button onClick="{{ to.select }}" title="{{ to.full }}" style="{{ to.style }}">{{ to.abbr }}</button>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px;">
+              <button onClick="{{ p.toggle }}" title="{{ p.activeTitle }}" style="{{ p.switchStyle }}"><span style="{{ p.knobStyle }}"></span></button>
+              <div style="display:flex;gap:7px;">
+                <button onClick="{{ p.edit }}" style="padding:8px 15px;border-radius:999px;border:1px solid #dcdce2;background:#fff;color:#0a0c14;font-size:12.5px;font-weight:600;cursor:pointer;">Editar</button>
+                <button onClick="{{ p.del }}" title="Eliminar" style="width:34px;height:34px;border-radius:999px;border:1px solid #f1d5d5;background:#fdf2f2;color:#c0392b;font-size:14px;cursor:pointer;">✕</button>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <!-- ============ USE CASES ============ -->
+    <sc-if value="{{ showUses }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+        <h2 style="margin:0;font-size:19px;font-weight:700;letter-spacing:-.01em;">Tipos de uso</h2>
+        <button onClick="{{ newUse }}" style="margin-left:auto;padding:11px 20px;border-radius:12px;border:none;background:#0A66FF;color:#fff;font-size:13.5px;font-weight:600;cursor:pointer;box-shadow:0 10px 22px -10px rgba(10,102,255,.6);">+ Nuevo tipo de uso</button>
+      </div>
+      <div style="background:#eef3ff;border:1px solid #d6e4ff;border-radius:13px;padding:13px 16px;margin-bottom:18px;display:flex;gap:10px;align-items:flex-start;">
+        <span style="font-size:15px;">🎯</span>
+        <p style="margin:0;color:#33507d;font-size:12.5px;line-height:1.5;">Estos son los escenarios que el visitante elige en el registro. Al crear o editar un producto, márcalo con los tipos de uso a los que aplica: el catálogo mostrará solo esos productos según lo que elija cada visitante.</p>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;">
+        <sc-for list="{{ useItems }}" as="u" hint-placeholder-count="6">
+          <div style="background:#fff;border:1px solid #ececf1;border-radius:16px;padding:16px 18px;box-shadow:0 8px 22px -18px rgba(0,0,0,.3);display:flex;gap:13px;align-items:flex-start;">
+            <div style="width:44px;height:44px;flex:0 0 44px;border-radius:12px;background:#f4f6fb;display:flex;align-items:center;justify-content:center;font-size:22px;">{{ u.icon }}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:15px;font-weight:700;letter-spacing:-.01em;">{{ u.name }}</div>
+              <div style="font-size:12.5px;color:#8a8f9c;line-height:1.4;margin-top:2px;">{{ u.desc }}</div>
+              <div style="font-size:11.5px;color:#adb2bd;margin-top:7px;">{{ u.count }}</div>
+              <div style="display:flex;gap:7px;margin-top:11px;">
+                <button onClick="{{ u.edit }}" style="padding:7px 14px;border-radius:999px;border:1px solid #dcdce2;background:#fff;color:#0a0c14;font-size:12px;font-weight:600;cursor:pointer;">Editar</button>
+                <button onClick="{{ u.del }}" title="Eliminar" style="width:31px;height:31px;border-radius:999px;border:1px solid #f1d5d5;background:#fdf2f2;color:#c0392b;font-size:13px;cursor:pointer;">✕</button>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <!-- ============ LEADS ============ -->
+    <sc-if value="{{ showLeads }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;">
+        <h2 style="margin:0;font-size:19px;font-weight:700;letter-spacing:-.01em;">Registros del evento</h2>
+        <sc-if value="{{ hasLeads }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ exportLeads }}" style="margin-left:auto;padding:9px 15px;border-radius:10px;border:1px solid #dcdce2;background:#fff;color:#3a3a3f;font-size:12.5px;font-weight:600;cursor:pointer;">⬇ Exportar CSV</button>
+          <button onClick="{{ clearLeads }}" style="padding:9px 15px;border-radius:10px;border:1px solid #f1d5d5;background:#fdf2f2;color:#c0392b;font-size:12.5px;font-weight:600;cursor:pointer;">Vaciar</button>
+        </sc-if>
+      </div>
+
+      <sc-if value="{{ noLeads }}" hint-placeholder-val="{{ true }}">
+        <div style="background:#fff;border:1px dashed #d2d5dd;border-radius:18px;padding:52px 30px;text-align:center;animation:tecFade .4s ease;">
+          <div style="font-size:32px;margin-bottom:12px;">📋</div>
+          <div style="font-size:16px;font-weight:700;margin-bottom:6px;">Aún no hay registros</div>
+          <p style="margin:0 auto;max-width:380px;color:#8a8f9c;font-size:13.5px;line-height:1.5;">Cada visitante que complete el formulario del <a href="Tecology Catalogo.dc.html">catálogo</a> aparecerá aquí con sus datos y su actividad de navegación.</p>
+        </div>
+      </sc-if>
+
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <sc-for list="{{ leads }}" as="l" hint-placeholder-count="2">
+          <div style="background:#fff;border:1px solid #ececf1;border-radius:16px;padding:18px 20px;box-shadow:0 8px 22px -18px rgba(0,0,0,.3);">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+              <div style="width:42px;height:42px;border-radius:50%;background:{{ l.avatarBg }};color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex:0 0 42px;">{{ l.initials }}</div>
+              <div>
+                <div style="font-size:16px;font-weight:700;letter-spacing:-.01em;">{{ l.name }}</div>
+                <div style="font-size:12.5px;color:#8a8f9c;">{{ l.cargo }} · {{ l.empresa }}</div>
+              </div>
+              <span style="{{ l.quoteStyle }}">{{ l.quotedLabel }}</span>
+              <span style="margin-left:auto;font-size:12px;color:#9aa3b5;">{{ l.fecha }}</span>
+            </div>
+
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
+              <span style="padding:7px 12px;border-radius:9px;background:#f5f6f8;color:#3a3a3f;font-size:12.5px;">✉️ {{ l.correo }}</span>
+              <span style="padding:7px 12px;border-radius:9px;background:#f5f6f8;color:#3a3a3f;font-size:12.5px;">📞 {{ l.telefono }}</span>
+              <span style="padding:7px 12px;border-radius:9px;background:#f5f6f8;color:#3a3a3f;font-size:12.5px;">👥 {{ l.colaboradores }}</span>
+              <span style="padding:7px 12px;border-radius:9px;background:#eaf1ff;color:#0A66FF;font-size:12.5px;font-weight:600;">🎯 {{ l.uso }}</span>
+              <span style="padding:7px 12px;border-radius:9px;background:#f5f6f8;color:#3a3a3f;font-size:12.5px;">🔄 {{ l.renovar }}</span>
+            </div>
+
+            <div style="margin-top:14px;padding-top:14px;border-top:1px solid #f0f0f4;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;font-size:12.5px;color:#8a8f9c;">
+              <div><span style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#adb2bd;margin-bottom:2px;">Categorías</span><span style="color:#3a3a3f;">{{ l.cats }}</span></div>
+              <div><span style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#adb2bd;margin-bottom:2px;">Productos vistos</span><span style="color:#3a3a3f;">{{ l.vistos }}</span></div>
+              <div><span style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#adb2bd;margin-bottom:2px;">Favoritos</span><span style="color:#3a3a3f;">{{ l.favs }}</span></div>
+              <div><span style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#adb2bd;margin-bottom:2px;">Navegación</span><span style="color:#3a3a3f;">{{ l.segundos }}</span></div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+  </div>
+
+  <!-- ============ EDIT OVERLAY ============ -->
+  <sc-if value="{{ editing }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;background:rgba(8,12,22,.5);backdrop-filter:blur(3px);z-index:50;display:flex;align-items:center;justify-content:center;padding:20px;animation:tecFade .2s ease;">
+      <div style="background:#fff;border-radius:22px;max-width:600px;width:100%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 40px 100px -30px rgba(0,0,0,.55);animation:tecPop .28s cubic-bezier(.2,.8,.2,1);">
+        <div style="padding:22px 26px;border-bottom:1px solid #f0f0f4;display:flex;align-items:center;">
+          <h3 style="margin:0;font-size:19px;font-weight:700;letter-spacing:-.01em;">{{ modalTitle }}</h3>
+          <span style="margin-left:12px;padding:5px 11px;border-radius:999px;background:#f0f1f5;color:#6e6e73;font-size:12px;font-weight:600;">{{ modalCat }}</span>
+          <button onClick="{{ draft.cancel }}" style="margin-left:auto;width:34px;height:34px;border-radius:50%;border:none;background:#f0f1f5;color:#3a3a3f;font-size:16px;cursor:pointer;">✕</button>
+        </div>
+
+        <div class="tec-scroll" style="padding:22px 26px;overflow-y:auto;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+            <div><label style="{{ labelStyle }}">Nombre</label><input value="{{ draft.name }}" onInput="{{ draft.dName }}" placeholder="ThinkPad T14" style="{{ inputStyle }}"></div>
+            <div><label style="{{ labelStyle }}">Modelo / línea</label><input value="{{ draft.model }}" onInput="{{ draft.dModel }}" placeholder="Gen 4 · vPro" style="{{ inputStyle }}"></div>
+          </div>
+
+          <div style="margin-bottom:14px;">
+            <label style="{{ labelStyle }}">Nivel en el catálogo</label>
+            <div style="display:flex;gap:8px;">
+              <sc-for list="{{ draft.tierOpts }}" as="to" hint-placeholder-count="3">
+                <button onClick="{{ to.select }}" style="{{ to.style }}">{{ to.full }}</button>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+            <div><label style="{{ labelStyle }}">Precio</label><input value="{{ draft.price }}" onInput="{{ draft.dPrice }}" placeholder="$699" style="{{ inputStyle }}"></div>
+            <div><label style="{{ labelStyle }}">Garantía</label><input value="{{ draft.warranty }}" onInput="{{ draft.dWarranty }}" placeholder="Garantía 3 años" style="{{ inputStyle }}"></div>
+          </div>
+
+          <div style="margin-bottom:16px;">
+            <label style="{{ labelStyle }}">Recomendado para <span style="color:#adb2bd;font-weight:400;">— tipos de uso donde aparece este producto</span></label>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+              <sc-for list="{{ draft.useChips }}" as="u" hint-placeholder-count="6">
+                <button onClick="{{ u.toggle }}" style="{{ u.style }}"><span>{{ u.icon }}</span>{{ u.name }}</button>
+              </sc-for>
+            </div>
+          </div>
+
+          <label style="{{ labelStyle }}">Especificaciones</label>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+            <sc-for list="{{ draft.specs }}" as="s" hint-placeholder-count="4">
+              <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:8px;">
+                <input value="{{ s.k }}" onInput="{{ s.setK }}" placeholder="Procesador" style="{{ inputMuted }}">
+                <input value="{{ s.v }}" onInput="{{ s.setV }}" placeholder="Intel Core i7" style="{{ inputStyle }}">
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="margin-bottom:14px;">
+            <label style="{{ labelStyle }}">Ideal para</label>
+            <textarea value="{{ draft.ideal }}" onInput="{{ draft.dIdeal }}" rows="2" placeholder="Profesionales que necesitan…" style="{{ areaStyle }}"></textarea>
+          </div>
+          <div style="margin-bottom:14px;">
+            <label style="{{ labelStyle }}">Características destacadas <span style="color:#adb2bd;font-weight:400;">— una por línea</span></label>
+            <textarea value="{{ draft.featuresText }}" onInput="{{ draft.dFeatures }}" rows="3" placeholder="Seguridad Intel vPro&#10;Carga rápida" style="{{ areaStyle }}"></textarea>
+          </div>
+
+          <sc-if value="{{ draft.isCombo }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-bottom:14px;">
+              <label style="{{ labelStyle }}">El combo incluye <span style="color:#adb2bd;font-weight:400;">— una línea por artículo, emoji opcional</span></label>
+              <textarea value="{{ draft.includesText }}" onInput="{{ draft.dIncludes }}" rows="4" placeholder="💻 Laptop ThinkPad&#10;🖥 Monitor 24&quot;" style="{{ areaStyle }}"></textarea>
+            </div>
+          </sc-if>
+
+          <label style="{{ labelStyle }}">Imagen del producto</label>
+          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+            <div style="width:100px;height:72px;border-radius:12px;overflow:hidden;background:repeating-linear-gradient(135deg,#f1f3f8,#f1f3f8 8px,#e9edf4 8px,#e9edf4 16px);display:flex;align-items:center;justify-content:center;flex:0 0 100px;">
+              <sc-if value="{{ draft.hasImg }}" hint-placeholder-val="{{ false }}">
+                <img src="{{ draft.img }}" alt="preview" style="width:100%;height:100%;object-fit:cover;">
+              </sc-if>
+              <sc-if value="{{ draft.noImg }}" hint-placeholder-val="{{ true }}">
+                <span style="font-size:9px;color:#9aa3b5;">sin foto</span>
+              </sc-if>
+            </div>
+            <div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:8px;">
+              <label style="padding:10px 14px;border-radius:11px;border:1px dashed #c7ccd6;background:#fafbfc;color:#0A66FF;font-size:12.5px;font-weight:600;cursor:pointer;text-align:center;">
+                Subir imagen
+                <input type="file" accept="image/*" onChange="{{ draft.dImgFile }}" style="display:none;">
+              </label>
+              <input value="{{ draft.img }}" onInput="{{ draft.dImg }}" placeholder="…o pegue una URL" style="{{ inputMuted }}">
+            </div>
+          </div>
+        </div>
+
+        <div style="padding:18px 26px;border-top:1px solid #f0f0f4;display:flex;gap:10px;justify-content:flex-end;">
+          <button onClick="{{ draft.cancel }}" style="padding:12px 20px;border-radius:12px;border:1px solid #dcdce2;background:#fff;color:#3a3a3f;font-size:14px;font-weight:600;cursor:pointer;">Cancelar</button>
+          <button onClick="{{ draft.save }}" style="padding:12px 26px;border-radius:12px;border:none;background:#0A66FF;color:#fff;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 10px 22px -10px rgba(10,102,255,.6);">Guardar producto</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ USE CASE EDITOR ============ -->
+  <sc-if value="{{ editingUse }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;background:rgba(8,12,22,.5);backdrop-filter:blur(3px);z-index:50;display:flex;align-items:center;justify-content:center;padding:20px;animation:tecFade .2s ease;">
+      <div style="background:#fff;border-radius:22px;max-width:440px;width:100%;box-shadow:0 40px 100px -30px rgba(0,0,0,.55);animation:tecPop .28s cubic-bezier(.2,.8,.2,1);">
+        <div style="padding:22px 26px;border-bottom:1px solid #f0f0f4;display:flex;align-items:center;">
+          <h3 style="margin:0;font-size:18px;font-weight:700;letter-spacing:-.01em;">{{ useModalTitle }}</h3>
+          <button onClick="{{ useDraft.cancel }}" style="margin-left:auto;width:34px;height:34px;border-radius:50%;border:none;background:#f0f1f5;color:#3a3a3f;font-size:16px;cursor:pointer;">✕</button>
+        </div>
+        <div style="padding:22px 26px;">
+          <div style="display:flex;gap:12px;margin-bottom:14px;">
+            <div style="flex:0 0 74px;">
+              <label style="{{ labelStyle }}">Icono</label>
+              <input value="{{ useDraft.icon }}" onInput="{{ useDraft.dIcon }}" placeholder="🏢" style="{{ inputStyle }}text-align:center;font-size:20px;">
+            </div>
+            <div style="flex:1;">
+              <label style="{{ labelStyle }}">Nombre</label>
+              <input value="{{ useDraft.name }}" onInput="{{ useDraft.dName }}" placeholder="Oficina administrativa" style="{{ inputStyle }}">
+            </div>
+          </div>
+          <div>
+            <label style="{{ labelStyle }}">Descripción corta</label>
+            <input value="{{ useDraft.desc }}" onInput="{{ useDraft.dDesc }}" placeholder="Office, navegación y multitarea." style="{{ inputStyle }}">
+          </div>
+        </div>
+        <div style="padding:18px 26px;border-top:1px solid #f0f0f4;display:flex;gap:10px;justify-content:flex-end;">
+          <button onClick="{{ useDraft.cancel }}" style="padding:12px 20px;border-radius:12px;border:1px solid #dcdce2;background:#fff;color:#3a3a3f;font-size:14px;font-weight:600;cursor:pointer;">Cancelar</button>
+          <button onClick="{{ useDraft.save }}" style="padding:12px 26px;border-radius:12px;border:none;background:#0A66FF;color:#fff;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 10px 22px -10px rgba(10,102,255,.6);">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:940}}">
+class Component extends DCLogic {
+  state = { tab: 'productos', cat: 'laptops', editing: false, editCat: null, editId: null, draft: null,
+            editingUse: false, useId: null, useDraft: null };
+
+  store() { return (window.TecologyData && window.TecologyData.load()) || { categories: {} }; }
+  commit(d) { if (window.TecologyData) window.TecologyData.save(d); this.forceUpdate(); }
+
+  catMeta() {
+    return [
+      { key: 'laptops', label: 'Laptops' },
+      { key: 'desktop', label: 'Desktop' },
+      { key: 'combos', label: 'Combos' },
+      { key: 'monitores', label: 'Monitores' },
+    ];
+  }
+
+  tierList() { return [{ full: 'Básico', abbr: 'B' }, { full: 'Recomendado', abbr: 'R' }, { full: 'Empresarial', abbr: 'E' }]; }
+
+  blankDraft(cat) {
+    const specs = cat === 'combos'
+      ? [{k:'Equipo',v:''},{k:'Monitor',v:''},{k:'Periféricos',v:''},{k:'Extra',v:''}]
+      : [{k:'Procesador',v:''},{k:'Memoria',v:''},{k:'Almacenamiento',v:''},{k:'Pantalla',v:''}];
+    return { name:'', model:'', price:'$', tier:'Básico', warranty:'Garantía 1 año', img:'', ideal:'', specs, featuresText:'', includesText:'', uses:[] };
+  }
+
+  slug(name) {
+    return (name || 'uso').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || ('uso-' + Date.now());
+  }
+
+  openUse(u) {
+    this.setState({ editingUse: true, useId: u ? u.id : null,
+      useDraft: u ? { icon: u.icon || '', name: u.name || '', desc: u.desc || '' } : { icon: '🏢', name: '', desc: '' } });
+  }
+
+  saveUse() {
+    const st = this.state, d = this.store(), ud = st.useDraft;
+    if (!ud || !ud.name.trim()) return;
+    if (!Array.isArray(d.useCases)) d.useCases = [];
+    if (st.useId) {
+      const i = d.useCases.findIndex(x => x.id === st.useId);
+      if (i >= 0) d.useCases[i] = { ...d.useCases[i], icon: ud.icon, name: ud.name.trim(), desc: ud.desc };
+    } else {
+      let id = this.slug(ud.name);
+      while (d.useCases.some(x => x.id === id)) id += '-1';
+      d.useCases.push({ id, icon: ud.icon || '•', name: ud.name.trim(), desc: ud.desc });
+    }
+    this.commit(d);
+    this.setState({ editingUse: false, useId: null, useDraft: null });
+  }
+
+  deleteUse(id) {
+    const d = this.store();
+    d.useCases = (d.useCases || []).filter(u => u.id !== id);
+    Object.keys(d.categories || {}).forEach(k => {
+      (d.categories[k].plans || []).forEach(p => { if (Array.isArray(p.uses)) p.uses = p.uses.filter(x => x !== id); });
+    });
+    this.commit(d);
+  }
+
+  openEdit(cat, p) {
+    const draft = p ? {
+      name: p.name || '', model: p.model || '', price: p.price || '', tier: p.tier || 'Básico',
+      warranty: p.warranty || '', img: p.img || '', ideal: p.ideal || '',
+      specs: (p.specs || []).map(s => ({ k: s.k, v: s.v })),
+      featuresText: (p.features || []).join('\n'),
+      includesText: (p.includes || []).map(i => (i.icon ? i.icon + ' ' : '') + i.label).join('\n'),
+      uses: Array.isArray(p.uses) ? [...p.uses] : [],
+    } : this.blankDraft(cat);
+    while (draft.specs.length < 4) draft.specs.push({ k: '', v: '' });
+    this.setState({ editing: true, editCat: cat, editId: p ? p.id : null, draft });
+  }
+
+  saveDraft() {
+    const st = this.state, d = this.store(), draft = st.draft;
+    if (!draft || !draft.name.trim()) return;
+    const block = d.categories[st.editCat];
+    if (!block) return;
+    const features = draft.featuresText.split('\n').map(x => x.trim()).filter(Boolean);
+    let includes = null;
+    if (st.editCat === 'combos') {
+      includes = draft.includesText.split('\n').map(x => x.trim()).filter(Boolean).map(line => {
+        const m = line.match(/^(\p{Extended_Pictographic}\uFE0F?)\s*(.*)$/u);
+        return m && m[2] ? { icon: m[1], label: m[2] } : { icon: '•', label: line };
+      });
+    }
+    const prod = {
+      name: draft.name.trim(), model: draft.model, price: draft.price, tier: draft.tier,
+      warranty: draft.warranty, img: draft.img, ideal: draft.ideal,
+      features, specs: draft.specs.filter(s => s.k && s.v),
+      uses: Array.isArray(draft.uses) ? draft.uses : [],
+    };
+    if (includes && includes.length) prod.includes = includes;
+    if (st.editId) {
+      const i = block.plans.findIndex(p => p.id === st.editId);
+      if (i >= 0) block.plans[i] = { ...block.plans[i], ...prod };
+    } else {
+      prod.id = st.editCat.slice(0, 2) + '-' + Date.now();
+      prod.active = true;
+      block.plans.push(prod);
+    }
+    this.commit(d);
+    this.setState({ editing: false, draft: null, editId: null });
+  }
+
+  exportCsv() {
+    if (!window.TecologyData) return;
+    const leads = window.TecologyData.getLeads();
+    const cols = ['createdAt','nombre','apellido','empresa','cargo','correo','codigo','telefono','colaboradores','uso','renovar','categorias','vistos','favoritos','cotizo','segundos'];
+    const esc = (v) => { if (v == null) v = ''; if (Array.isArray(v)) v = v.join(' | '); v = String(v).replace(/"/g, '""'); return '"' + v + '"'; };
+    const rows = [cols.join(',')].concat(leads.map(l => cols.map(c => esc(l[c])).join(',')));
+    const blob = new Blob(['\ufeff' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'tecology-leads.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  renderVals() {
+    const st = this.state;
+    const data = this.store();
+    const hasStore = !!window.TecologyData;
+
+    const labelStyle = 'display:block;font-size:12px;font-weight:600;color:#6e6e73;margin-bottom:6px;';
+    const inputStyle = 'width:100%;padding:11px 13px;border:1px solid #dcdce2;border-radius:11px;font-size:13.5px;color:#0a0c14;background:#fff;outline:none;';
+    const inputMuted = 'width:100%;padding:11px 13px;border:1px solid #e6e6ec;border-radius:11px;font-size:13px;color:#3a3a3f;background:#fafbfc;outline:none;';
+    const areaStyle = inputStyle + 'resize:vertical;line-height:1.5;';
+
+    // stats
+    let totalActive = 0, totalAll = 0;
+    Object.keys(data.categories || {}).forEach(k => {
+      (data.categories[k].plans || []).forEach(p => { totalAll++; if (p.active !== false) totalActive++; });
+    });
+    const leadsRaw = hasStore ? window.TecologyData.getLeads() : [];
+    const quoted = leadsRaw.filter(l => l.cotizo).length;
+    const stats = [
+      { icon: '🟢', label: 'Productos activos', value: totalActive, color: '#0a0c14' },
+      { icon: '📦', label: 'Total en catálogo', value: totalAll, color: '#0a0c14' },
+      { icon: '👤', label: 'Clientes potenciales', value: leadsRaw.length, color: '#0A66FF' },
+      { icon: '✅', label: 'Cotizaciones', value: quoted, color: '#12b76a' },
+    ];
+
+    const tabs = [
+      { key: 'productos', label: 'Catálogo' },
+      { key: 'usos', label: 'Tipos de uso' },
+      { key: 'leads', label: 'Clientes potenciales' },
+    ].map(t => {
+      const on = st.tab === t.key;
+      return { label: t.label, select: () => this.setState({ tab: t.key }),
+        style: `padding:9px 20px;border-radius:10px;border:none;background:${on ? '#fff' : 'transparent'};color:${on ? '#0a0c14' : '#6e6e73'};font-size:13.5px;font-weight:600;cursor:pointer;box-shadow:${on ? '0 2px 8px -2px rgba(0,0,0,.15)' : 'none'};transition:all .2s;` };
+    });
+
+    const catPills = this.catMeta().map(c => {
+      const on = st.cat === c.key;
+      const count = ((data.categories[c.key] || {}).plans || []).length;
+      return { label: c.label, count: count,
+        select: () => this.setState({ cat: c.key }),
+        style: `padding:9px 15px;border-radius:999px;border:1px solid ${on ? '#0A66FF' : '#e2e2e8'};background:${on ? '#0A66FF' : '#fff'};color:${on ? '#fff' : '#3a3a3f'};font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;` };
+    });
+
+    const block = data.categories[st.cat] || { plans: [] };
+    const tierOrder = { 'Básico': 0, 'Recomendado': 1, 'Empresarial': 2 };
+    const tiers = this.tierList();
+    const products = [...block.plans].sort((a, b) => (tierOrder[a.tier] ?? 9) - (tierOrder[b.tier] ?? 9)).map(p => {
+      const inactive = p.active === false;
+      const tierOpts = tiers.map(t => {
+        const on = p.tier === t.full;
+        return { abbr: t.abbr, full: t.full,
+          select: () => { const d = this.store(); const q = d.categories[st.cat].plans.find(x => x.id === p.id); if (q) { q.tier = t.full; this.commit(d); } },
+          style: `width:30px;height:26px;border-radius:7px;border:none;cursor:pointer;font-size:12px;font-weight:700;background:${on ? (t.full === 'Recomendado' ? '#0A66FF' : '#fff') : 'transparent'};color:${on ? (t.full === 'Recomendado' ? '#fff' : '#0a0c14') : '#9aa3b5'};box-shadow:${on ? '0 2px 6px -2px rgba(0,0,0,.25)' : 'none'};` };
+      });
+      return {
+        name: p.name, model: p.model, price: p.price,
+        hasImg: !!p.img, noImg: !p.img, img: p.img,
+        specSummary: (p.specs || []).map(s => s.v).filter(Boolean).slice(0, 3).join(' · '),
+        tierOpts,
+        activeTitle: inactive ? 'Inactivo — no se muestra en el catálogo' : 'Activo — visible en el catálogo',
+        rowStyle: `display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:#fff;border:1px solid #ececf1;border-radius:18px;padding:16px 18px;box-shadow:0 8px 22px -18px rgba(0,0,0,.3);opacity:${inactive ? '.5' : '1'};transition:opacity .2s;`,
+        switchStyle: `width:46px;height:27px;border-radius:999px;border:none;cursor:pointer;padding:0;position:relative;background:${inactive ? '#d2d5dd' : '#12b76a'};transition:background .2s;`,
+        knobStyle: `position:absolute;top:3px;left:${inactive ? '3px' : '22px'};width:21px;height:21px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .2s;`,
+        toggle: () => { const d = this.store(); const q = d.categories[st.cat].plans.find(x => x.id === p.id); if (q) { q.active = q.active === false; this.commit(d); } },
+        edit: () => this.openEdit(st.cat, p),
+        del: () => { const d = this.store(); const b = d.categories[st.cat]; b.plans = b.plans.filter(x => x.id !== p.id); this.commit(d); },
+      };
+    });
+
+    // leads
+    const palette = ['#0A66FF', '#12b76a', '#7c5cff', '#e8833a', '#d6455d', '#0e9aa7'];
+    const leads = [...leadsRaw].reverse().map((l, idx) => {
+      const nom = ((l.nombre || '') + ' ' + (l.apellido || '')).trim() || 'Sin nombre';
+      const initials = ((l.nombre || '?')[0] || '?') + ((l.apellido || '')[0] || '');
+      return {
+        name: nom, initials: initials.toUpperCase(),
+        avatarBg: palette[idx % palette.length],
+        empresa: l.empresa || '—', cargo: l.cargo || '—', correo: l.correo || '—',
+        telefono: ((l.codigo || '') + ' ' + (l.telefono || '')).trim() || '—',
+        colaboradores: (l.colaboradores || '—') + ' colab.', uso: l.uso || '—', renovar: l.renovar || '—',
+        cats: (l.categorias || []).join(', ') || '—',
+        vistos: (l.vistos || []).join(', ') || '—',
+        favs: (l.favoritos || []).join(', ') || '—',
+        quotedLabel: l.cotizo ? '✓ Cotización solicitada' : 'Solo navegó',
+        quoteStyle: l.cotizo
+          ? 'padding:6px 12px;border-radius:999px;background:#e9f9f0;color:#0e9155;font-size:12px;font-weight:700;'
+          : 'padding:6px 12px;border-radius:999px;background:#f0f1f5;color:#9aa3b5;font-size:12px;font-weight:600;',
+        fecha: l.createdAt ? new Date(l.createdAt).toLocaleString('es-CR', { dateStyle: 'medium', timeStyle: 'short' }) : '',
+        segundos: l.segundos ? l.segundos + ' segundos' : '—',
+      };
+    });
+
+    // use cases (store)
+    const storeUses = Array.isArray(data.useCases) ? data.useCases : [];
+    const countByUse = {};
+    Object.keys(data.categories || {}).forEach(k => {
+      (data.categories[k].plans || []).forEach(p => {
+        (Array.isArray(p.uses) ? p.uses : []).forEach(uid => { countByUse[uid] = (countByUse[uid] || 0) + 1; });
+      });
+    });
+    const useItems = storeUses.map(u => ({
+      icon: u.icon, name: u.name, desc: u.desc,
+      count: (countByUse[u.id] || 0) + ' producto' + ((countByUse[u.id] || 0) === 1 ? '' : 's'),
+      edit: () => this.openUse(u),
+      del: () => this.deleteUse(u.id),
+    }));
+
+    // use-case editor
+    let useDraft = null;
+    if (st.editingUse && st.useDraft) {
+      const UD = (k) => (e) => this.setState(s => ({ useDraft: { ...s.useDraft, [k]: e.target.value } }));
+      useDraft = { ...st.useDraft, dIcon: UD('icon'), dName: UD('name'), dDesc: UD('desc'),
+        save: () => this.saveUse(), cancel: () => this.setState({ editingUse: false, useDraft: null, useId: null }) };
+    }
+
+    // draft
+    let draft = null;
+    if (st.editing && st.draft) {
+      const D = (k) => (e) => this.setState(s => ({ draft: { ...s.draft, [k]: e.target.value } }));
+      const specs = st.draft.specs.map((s, i) => ({
+        k: s.k, v: s.v,
+        setK: (e) => { const sp = this.state.draft.specs.map((x, j) => j === i ? { ...x, k: e.target.value } : x); this.setState(s2 => ({ draft: { ...s2.draft, specs: sp } })); },
+        setV: (e) => { const sp = this.state.draft.specs.map((x, j) => j === i ? { ...x, v: e.target.value } : x); this.setState(s2 => ({ draft: { ...s2.draft, specs: sp } })); },
+      }));
+      const tierOpts = tiers.map(t => {
+        const on = st.draft.tier === t.full;
+        return { full: t.full,
+          select: () => this.setState(s => ({ draft: { ...s.draft, tier: t.full } })),
+          style: `flex:1;padding:11px 8px;border-radius:11px;border:1px solid ${on ? '#0A66FF' : '#dcdce2'};background:${on ? '#eaf1ff' : '#fff'};color:${on ? '#0A66FF' : '#6e6e73'};font-size:13px;font-weight:600;cursor:pointer;` };
+      });
+      const useChips = storeUses.map(u => {
+        const on = Array.isArray(st.draft.uses) && st.draft.uses.includes(u.id);
+        return { icon: u.icon, name: u.name,
+          toggle: () => this.setState(s => {
+            const cur = Array.isArray(s.draft.uses) ? s.draft.uses : [];
+            const next = cur.includes(u.id) ? cur.filter(x => x !== u.id) : [...cur, u.id];
+            return { draft: { ...s.draft, uses: next } };
+          }),
+          style: `display:inline-flex;align-items:center;gap:6px;padding:8px 13px;border-radius:999px;border:1px solid ${on ? '#0A66FF' : '#dcdce2'};background:${on ? '#eaf1ff' : '#fff'};color:${on ? '#0A66FF' : '#3a3a3f'};font-size:12.5px;font-weight:600;cursor:pointer;` };
+      });
+      draft = {
+        ...st.draft, specs, tierOpts, useChips,
+        isCombo: st.editCat === 'combos',
+        hasImg: !!st.draft.img, noImg: !st.draft.img,
+        dName: D('name'), dModel: D('model'), dPrice: D('price'),
+        dWarranty: D('warranty'), dImg: D('img'), dIdeal: D('ideal'),
+        dFeatures: D('featuresText'), dIncludes: D('includesText'),
+        dImgFile: (e) => {
+          const f = e.target.files && e.target.files[0];
+          if (!f) return;
+          const img = new Image();
+          const url = URL.createObjectURL(f);
+          img.onload = () => {
+            const maxW = 640;
+            const scale = Math.min(1, maxW / img.width);
+            const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            const dataUrl = canvas.toDataURL('image/jpeg', .82);
+            URL.revokeObjectURL(url);
+            this.setState(s => ({ draft: { ...s.draft, img: dataUrl } }));
+          };
+          img.src = url;
+        },
+        save: () => this.saveDraft(),
+        cancel: () => this.setState({ editing: false, draft: null, editId: null }),
+      };
+    }
+
+    const catLabelMap = { laptops: 'Laptops', desktop: 'Desktop', combos: 'Combos', monitores: 'Monitores' };
+
+    return {
+      stats, tabs, catPills, products,
+      showProducts: st.tab === 'productos',
+      showUses: st.tab === 'usos',
+      showLeads: st.tab === 'leads',
+      useItems, newUse: () => this.openUse(null),
+      editingUse: !!(st.editingUse && st.useDraft), useDraft,
+      useModalTitle: st.useId ? 'Editar tipo de uso' : 'Nuevo tipo de uso',
+      newProduct: () => this.openEdit(st.cat, null),
+      restoreDemo: () => { if (window.TecologyData) window.TecologyData.reset(); this.forceUpdate(); },
+      leads, hasLeads: leads.length > 0, noLeads: leads.length === 0,
+      clearLeads: () => { if (window.TecologyData) window.TecologyData.clearLeads(); this.forceUpdate(); },
+      exportLeads: () => this.exportCsv(),
+      editing: !!(st.editing && st.draft), draft,
+      modalTitle: st.editId ? 'Editar producto' : 'Nuevo producto',
+      modalCat: catLabelMap[st.editCat] || '',
+      labelStyle, inputStyle, inputMuted, areaStyle,
+    };
+  }
+}
+</script>
+</body>
+</html>
