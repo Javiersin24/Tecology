@@ -53,8 +53,24 @@ Sube una foto a un producto y cámbialo de nivel: los cambios quedan en Supabase
 
 ## 6) Publicar en Vercel (gratis)
 
-1. Sube este repositorio a **GitHub** (si aún no está).
-2. Entra a **https://vercel.com** → inicia sesión con GitHub → *Add New… → Project*.
+### 6.1 Subir el código a tu GitHub
+
+Si el repositorio aún no está en tu GitHub:
+
+1. Crea un repositorio vacío en **https://github.com/new** (por ejemplo `tecology`), sin
+   README ni .gitignore.
+2. Desde la raíz del proyecto, en tu terminal:
+
+   ```bash
+   git remote add origin https://github.com/TU-USUARIO/tecology.git
+   git push -u origin HEAD        # sube la rama actual con todo el código
+   ```
+
+   > El proyecto Next.js está en la subcarpeta `tecology-app/` de este repositorio.
+
+### 6.2 Importar en Vercel
+
+1. Entra a **https://vercel.com** → inicia sesión con GitHub → *Add New… → Project*.
 3. Importa el repositorio. En **Root Directory** selecciona **`tecology-app`**.
 4. En **Environment Variables** agrega las dos:
    - `NEXT_PUBLIC_SUPABASE_URL` = tu Project URL
