@@ -4,6 +4,7 @@ import { useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { store } from "@/lib/store";
 import { useCatalogData, useLeads } from "@/lib/useStore";
+import { EMPTY_CATALOG } from "@/lib/seed";
 import { COLOR } from "@/lib/theme";
 import type { CatalogData, Product, Spec, Tier, UseCase } from "@/lib/types";
 
@@ -50,8 +51,9 @@ function slug(name: string): string {
     .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 24) || ("uso-" + Date.now());
 }
 
-export default function AdminApp() {
-  const data = useCatalogData();
+export default function AdminApp({ onSignOut }: { onSignOut?: () => void }) {
+  const loaded = useCatalogData();
+  const data = loaded ?? EMPTY_CATALOG;
   const leadsRaw = useLeads();
 
   const [tab, setTab] = useState<Tab>("productos");
@@ -61,16 +63,21 @@ export default function AdminApp() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [useId, setUseId] = useState<string | null>(null);
   const [useDraft, setUseDraft] = useState<UseDraft | null>(null);
-
-  if (!data) return <div style={{ minHeight: "100dvh", background: COLOR.panelBg }} />;
+  const [uploading, setUploading] = useState(false);
 
   const catLabelMap: Record<string, string> = { laptops: "Laptops", desktop: "Desktop", combos: "Combos", monitores: "Monitores" };
 
   // ---- mutaciones -------------------------------------------------------
+  // Opera sobre una copia de los datos ya cargados y persiste el resultado.
+  // Al guardar, el store notifica (realtime/local) y la UI se refresca sola.
   const mutate = (fn: (d: CatalogData) => void) => {
-    const d = store.load();
+    if (!loaded) return; // nunca guardar sobre el catálogo vacío de respaldo
+    const d: CatalogData = structuredClone(loaded);
     fn(d);
-    store.save(d);
+    void store.save(d).catch((e) => {
+      console.error("Tecology: no se pudo guardar", e);
+      alert("No se pudo guardar el cambio. Revisa tu conexión e inténtalo de nuevo.");
+    });
   };
 
   const openEdit = (c: CatKey, p: Product | null) => {
@@ -146,8 +153,8 @@ export default function AdminApp() {
     });
   };
 
-  const exportCsv = () => {
-    const leads = store.getLeads();
+  const exportCsv = async () => {
+    const leads = await store.getLeads();
     const cols = ["createdAt", "nombre", "apellido", "empresa", "cargo", "correo", "codigo", "telefono", "colaboradores", "uso", "renovar", "categorias", "vistos", "favoritos", "cotizo", "segundos"];
     const esc = (v: unknown) => {
       if (v == null) v = "";
@@ -163,23 +170,21 @@ export default function AdminApp() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
-  const onImgFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onImgFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    const imgEl = new Image();
-    const url = URL.createObjectURL(f);
-    imgEl.onload = () => {
-      const maxW = 640;
-      const scale = Math.min(1, maxW / imgEl.width);
-      const w = Math.round(imgEl.width * scale), h = Math.round(imgEl.height * scale);
-      const canvas = document.createElement("canvas");
-      canvas.width = w; canvas.height = h;
-      canvas.getContext("2d")?.drawImage(imgEl, 0, 0, w, h);
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
-      URL.revokeObjectURL(url);
-      setDraft((s) => (s ? { ...s, img: dataUrl } : s));
-    };
-    imgEl.src = url;
+    setUploading(true);
+    try {
+      // El store comprime a 640px y, con Supabase, sube al bucket y devuelve la URL.
+      const url = await store.uploadImage(f);
+      setDraft((s) => (s ? { ...s, img: url } : s));
+    } catch (err) {
+      console.error("Tecology: no se pudo subir la imagen", err);
+      alert("No se pudo subir la imagen. Inténtalo con otra o revisa tu conexión.");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
   };
 
   // ---- valores derivados -----------------------------------------------
@@ -222,8 +227,11 @@ export default function AdminApp() {
             <div style={{ fontSize: 11.5, color: COLOR.muted2, marginTop: 2 }}>Panel administrativo</div>
           </div>
           <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
-            <button onClick={() => { store.reset(); }} style={{ padding: "9px 15px", borderRadius: 10, border: `1px solid ${COLOR.borderInput}`, background: "#fff", color: "#3a3a3f", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>↺ Restaurar demo</button>
+            <button onClick={() => { if (confirm("Restaurar los productos y tipos de uso de ejemplo. Los productos que hayas creado no se borran. ¿Continuar?")) void store.reset().catch(() => alert("No se pudo restaurar.")); }} style={{ padding: "9px 15px", borderRadius: 10, border: `1px solid ${COLOR.borderInput}`, background: "#fff", color: "#3a3a3f", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>↺ Restaurar demo</button>
             <Link href="/" style={{ padding: "9px 17px", borderRadius: 10, background: COLOR.ink, color: "#fff", fontSize: 12.5, fontWeight: 600, display: "inline-block" }}>Ver catálogo →</Link>
+            {onSignOut && (
+              <button onClick={onSignOut} style={{ padding: "9px 15px", borderRadius: 10, border: `1px solid ${COLOR.borderInput}`, background: "#fff", color: "#3a3a3f", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>Cerrar sesión</button>
+            )}
           </div>
         </div>
       </div>
@@ -370,7 +378,7 @@ export default function AdminApp() {
               {leadsRaw.length > 0 && (
                 <>
                   <button onClick={exportCsv} style={{ marginLeft: "auto", padding: "9px 15px", borderRadius: 10, border: `1px solid ${COLOR.borderInput}`, background: "#fff", color: "#3a3a3f", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>⬇ Exportar CSV</button>
-                  <button onClick={() => store.clearLeads()} style={{ padding: "9px 15px", borderRadius: 10, border: "1px solid #f1d5d5", background: "#fdf2f2", color: "#c0392b", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>Vaciar</button>
+                  <button onClick={() => { if (confirm("Se eliminarán todos los registros de clientes. Esta acción no se puede deshacer. ¿Continuar?")) void store.clearLeads().catch(() => alert("No se pudo vaciar.")); }} style={{ padding: "9px 15px", borderRadius: 10, border: "1px solid #f1d5d5", background: "#fdf2f2", color: "#c0392b", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>Vaciar</button>
                 </>
               )}
             </div>
@@ -498,9 +506,9 @@ export default function AdminApp() {
                 )}
               </div>
               <div style={{ flex: 1, minWidth: 220, display: "flex", flexDirection: "column", gap: 8 }}>
-                <label style={{ padding: "10px 14px", borderRadius: 11, border: "1px dashed #c7ccd6", background: "#fafbfc", color: COLOR.blue, fontSize: 12.5, fontWeight: 600, cursor: "pointer", textAlign: "center" }}>
-                  Subir imagen
-                  <input type="file" accept="image/*" onChange={onImgFile} style={{ display: "none" }} />
+                <label style={{ padding: "10px 14px", borderRadius: 11, border: "1px dashed #c7ccd6", background: "#fafbfc", color: COLOR.blue, fontSize: 12.5, fontWeight: 600, cursor: uploading ? "wait" : "pointer", textAlign: "center", opacity: uploading ? 0.6 : 1 }}>
+                  {uploading ? "Subiendo…" : "Subir imagen"}
+                  <input type="file" accept="image/*" disabled={uploading} onChange={onImgFile} style={{ display: "none" }} />
                 </label>
                 <input value={draft.img} onChange={(e) => setDraft({ ...draft, img: e.target.value })} placeholder="…o pegue una URL" style={inputMuted} />
               </div>

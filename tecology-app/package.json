@@ -6,9 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "gen:schema": "node --experimental-strip-types scripts/gen-schema.ts > supabase/schema.sql"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.110.5",
     "motion": "^12.42.2",
     "next": "16.2.10",
     "react": "19.2.4",
@@ -21,7 +23,6 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
-    "playwright": "^1.61.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

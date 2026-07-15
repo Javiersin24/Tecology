@@ -6,7 +6,7 @@ import Link from "next/link";
 import { store } from "@/lib/store";
 import { useCatalogData } from "@/lib/useStore";
 import { CATEGORY_META, COUNTRY_CODES, COLOR } from "@/lib/theme";
-import { CATEGORY_ORDER } from "@/lib/seed";
+import { CATEGORY_ORDER, EMPTY_CATALOG } from "@/lib/seed";
 import type { CategoryKey, Product, UseCase } from "@/lib/types";
 
 type Screen = "welcome" | "register" | "categories" | "catalog" | "detail" | "final";
@@ -40,7 +40,10 @@ const sectionTitle: CSSProperties = {
 };
 
 export default function CatalogApp() {
-  const data = useCatalogData();
+  // Si el catálogo aún no llegó (o el backend tarda), usamos una estructura vacía:
+  // la bienvenida no depende de datos y nunca debe quedar en blanco.
+  const loaded = useCatalogData();
+  const data = loaded ?? EMPTY_CATALOG;
 
   const [screen, setScreen] = useState<Screen>("welcome");
   const [, setHistory] = useState<Screen[]>([]);
@@ -79,24 +82,30 @@ export default function CatalogApp() {
   };
 
   // ---- leads ------------------------------------------------------------
+  // Las escrituras de leads no bloquean la navegación: se disparan y se ignoran
+  // los errores de red (la experiencia del visitante nunca debe trabarse).
   const syncLead = (patch: Record<string, unknown>) => {
-    if (leadId) store.updateLead(leadId, patch);
+    if (leadId) void store.updateLead(leadId, patch).catch(() => {});
   };
   const saveLead = (u: UseCase) => {
     const base = { ...form, renovar: renew, uso: u.name };
     if (leadId) {
-      store.updateLead(leadId, base);
+      void store.updateLead(leadId, base).catch(() => {});
       return;
     }
-    const id = store.addLead({ ...base, categorias: [], vistos: [], favoritos: [], cotizo: false });
-    setLeadId(id);
+    store
+      .addLead({ ...base, categorias: [], vistos: [], favoritos: [], cotizo: false })
+      .then((id) => setLeadId(id))
+      .catch(() => {});
   };
   const requestQuote = () => {
     if (leadId) {
-      store.updateLead(leadId, {
-        cotizo: true,
-        segundos: navStart ? Math.round((Date.now() - navStart) / 1000) : null,
-      });
+      void store
+        .updateLead(leadId, {
+          cotizo: true,
+          segundos: navStart ? Math.round((Date.now() - navStart) / 1000) : null,
+        })
+        .catch(() => {});
     }
     reset();
   };
@@ -154,11 +163,6 @@ export default function CatalogApp() {
     welcome: -1, register: 0, categories: 1, catalog: 2, detail: 2, final: 3,
   };
   const activeStep = stepMap[screen];
-
-  if (!data) {
-    // SSR / primer render antes de hidratar localStorage
-    return <div className="tec-stage"><div className="tec-device" /></div>;
-  }
 
   const showChrome = screen !== "welcome";
 

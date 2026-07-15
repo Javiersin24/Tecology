@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import AdminApp from "@/components/admin/AdminApp";
+import AdminGate from "@/components/admin/AdminGate";
 
 export const metadata: Metadata = {
   title: "Tecology · Panel administrativo",
 };
 
 export default function AdminPage() {
-  return <AdminApp />;
+  return <AdminGate />;
 }

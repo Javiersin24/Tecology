@@ -29,15 +29,20 @@ Rutas:
 - `/` — catálogo guiado (diseño móvil; en pantallas grandes se centra como *app card*).
 - `/admin` — panel administrativo.
 
-## Datos (capa tipo Supabase)
+## Datos: Supabase real o modo demo local
 
-El prototipo simula Supabase con persistencia en `localStorage`. Toda la lectura/escritura
-pasa por `src/lib/store.ts`, que expone la interfaz **`DataStore`**
-(`load / save / getLeads / addLead / updateLead / …`).
+Toda la lectura/escritura pasa por `src/lib/store.ts` (interfaz **`DataStore`**), con dos
+implementaciones que la app elige **automáticamente**:
 
-**Para conectar Supabase real**, basta con implementar `DataStore` con el SDK de Supabase
-(tablas `products`, `combos`, `use_cases`, `leads`) y reemplazar la instancia `store`
-exportada — el resto de la app no cambia. Los datos semilla viven en `src/lib/seed.ts`.
+- **Supabase** (`supabaseStore.ts`) — si defines `NEXT_PUBLIC_SUPABASE_URL` y
+  `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Base real compartida entre dispositivos, fotos en
+  Supabase Storage, sincronización en vivo (realtime) y `/admin` protegido con login.
+- **Local** (`store.ts`) — si no hay credenciales: persistencia en `localStorage`, ideal
+  para desarrollo y demo. `/admin` queda abierto (sin login).
+
+👉 **Para ponerlo en marcha de verdad y gratis, sigue [`SETUP.md`](./SETUP.md)** (Supabase +
+Vercel, ~10 min). El esquema completo está en `supabase/schema.sql` (una sola pegada en el
+editor SQL de Supabase). Los datos de ejemplo viven en `src/lib/seed.ts`.
 
 ## Estructura
 

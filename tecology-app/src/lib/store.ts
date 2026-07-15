@@ -1,22 +1,27 @@
 import type { CatalogData, Lead, NewLead } from "./types";
 import { SEED_DATA } from "./seed";
+import { isSupabaseConfigured } from "./supabaseClient";
+import { SupabaseDataStore } from "./supabaseStore";
 
 // ---------------------------------------------------------------------------
-// Capa de datos del catálogo. Simula el rol de Supabase con persistencia en
-// localStorage. En producción, se reemplaza la implementación de `DataStore`
-// por llamadas al SDK de Supabase (tablas: products, combos, use_cases, leads)
-// manteniendo exactamente esta interfaz — el resto de la app no cambia.
+// Capa de datos del catálogo. Una única interfaz `DataStore` con dos
+// implementaciones:
+//   • SupabaseDataStore — producción: base real, compartida entre dispositivos.
+//   • LocalDataStore    — desarrollo / demo: persistencia en localStorage.
+// La app elige automáticamente según haya o no credenciales de Supabase.
 // ---------------------------------------------------------------------------
 
 export interface DataStore {
-  load(): CatalogData;
-  save(data: CatalogData): void;
-  reset(): void;
-  getLeads(): Lead[];
-  addLead(lead: NewLead): string;
-  updateLead(id: string, patch: Partial<Lead>): void;
-  clearLeads(): void;
-  /** Notifica a los suscriptores cuando cambian datos o leads. */
+  load(): Promise<CatalogData>;
+  save(data: CatalogData): Promise<void>;
+  reset(): Promise<void>;
+  getLeads(): Promise<Lead[]>;
+  addLead(lead: NewLead): Promise<string>;
+  updateLead(id: string, patch: Partial<Lead>): Promise<void>;
+  clearLeads(): Promise<void>;
+  /** Sube una imagen y devuelve una URL utilizable en <img src>. */
+  uploadImage(file: Blob): Promise<string>;
+  /** Notifica cuando cambian datos o leads (para refrescar la UI). */
   subscribe(listener: () => void): () => void;
 }
 
@@ -27,17 +32,15 @@ const EVENT = "tecology:change";
 function clone<T>(o: T): T {
   return JSON.parse(JSON.stringify(o));
 }
-
 function hasWindow(): boolean {
   return typeof window !== "undefined";
 }
-
 function emit() {
   if (hasWindow()) window.dispatchEvent(new Event(EVENT));
 }
 
 class LocalDataStore implements DataStore {
-  load(): CatalogData {
+  async load(): Promise<CatalogData> {
     if (hasWindow()) {
       try {
         const raw = localStorage.getItem(CATALOG_KEY);
@@ -53,7 +56,7 @@ class LocalDataStore implements DataStore {
     return clone(SEED_DATA);
   }
 
-  save(data: CatalogData): void {
+  async save(data: CatalogData): Promise<void> {
     if (!hasWindow()) return;
     try {
       localStorage.setItem(CATALOG_KEY, JSON.stringify(data));
@@ -66,7 +69,7 @@ class LocalDataStore implements DataStore {
     }
   }
 
-  reset(): void {
+  async reset(): Promise<void> {
     if (!hasWindow()) return;
     try {
       localStorage.removeItem(CATALOG_KEY);
@@ -76,7 +79,7 @@ class LocalDataStore implements DataStore {
     emit();
   }
 
-  getLeads(): Lead[] {
+  async getLeads(): Promise<Lead[]> {
     if (!hasWindow()) return [];
     try {
       const raw = localStorage.getItem(LEADS_KEY);
@@ -87,7 +90,7 @@ class LocalDataStore implements DataStore {
     return [];
   }
 
-  private saveLeads(leads: Lead[]): void {
+  private setLeads(leads: Lead[]): void {
     if (!hasWindow()) return;
     try {
       localStorage.setItem(LEADS_KEY, JSON.stringify(leads));
@@ -97,24 +100,24 @@ class LocalDataStore implements DataStore {
     }
   }
 
-  addLead(lead: NewLead): string {
-    const leads = this.getLeads();
+  async addLead(lead: NewLead): Promise<string> {
+    const leads = await this.getLeads();
     const id = "ld-" + Date.now();
     leads.push({ id, createdAt: new Date().toISOString(), ...lead });
-    this.saveLeads(leads);
+    this.setLeads(leads);
     return id;
   }
 
-  updateLead(id: string, patch: Partial<Lead>): void {
-    const leads = this.getLeads();
+  async updateLead(id: string, patch: Partial<Lead>): Promise<void> {
+    const leads = await this.getLeads();
     const i = leads.findIndex((l) => l.id === id);
     if (i >= 0) {
       leads[i] = { ...leads[i], ...patch };
-      this.saveLeads(leads);
+      this.setLeads(leads);
     }
   }
 
-  clearLeads(): void {
+  async clearLeads(): Promise<void> {
     if (!hasWindow()) return;
     try {
       localStorage.removeItem(LEADS_KEY);
@@ -122,6 +125,11 @@ class LocalDataStore implements DataStore {
       /* noop */
     }
     emit();
+  }
+
+  /** Sin Storage remoto: comprime a data URL en el navegador (como el prototipo). */
+  async uploadImage(file: Blob): Promise<string> {
+    return compressToDataUrl(file);
   }
 
   subscribe(listener: () => void): () => void {
@@ -139,4 +147,34 @@ class LocalDataStore implements DataStore {
   }
 }
 
-export const store: DataStore = new LocalDataStore();
+/** Reduce una imagen a 640 px y la codifica como JPEG data URL. */
+export function compressToDataUrl(file: Blob, maxW = 640, quality = 0.82): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const scale = Math.min(1, maxW / img.width);
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext("2d")?.drawImage(img, 0, 0, w, h);
+      const dataUrl = canvas.toDataURL("image/jpeg", quality);
+      URL.revokeObjectURL(url);
+      resolve(dataUrl);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("No se pudo procesar la imagen"));
+    };
+    img.src = url;
+  });
+}
+
+export const store: DataStore = isSupabaseConfigured
+  ? new SupabaseDataStore()
+  : new LocalDataStore();
+
+/** Útil para la UI: indica si estamos con base real o modo demo local. */
+export { isSupabaseConfigured };

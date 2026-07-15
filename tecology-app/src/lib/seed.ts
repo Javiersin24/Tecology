@@ -117,3 +117,18 @@ export const SEED_DATA: CatalogData = {
 };
 
 export const CATEGORY_ORDER: string[] = ["laptops", "desktop", "combos", "monitores"];
+
+export const CATEGORY_LABELS: Record<string, string> = {
+  laptops: "Laptops empresariales",
+  desktop: "Computadoras de escritorio",
+  combos: "Combos empresariales",
+  monitores: "Monitores profesionales",
+};
+
+/** Catálogo vacío de respaldo mientras cargan los datos reales. */
+export const EMPTY_CATALOG: CatalogData = {
+  categories: Object.fromEntries(
+    CATEGORY_ORDER.map((k) => [k, { label: CATEGORY_LABELS[k] || k, plans: [] }]),
+  ),
+  useCases: [],
+};
