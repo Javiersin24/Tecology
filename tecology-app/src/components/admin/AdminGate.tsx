@@ -20,12 +20,14 @@ function Gated({ client }: { client: SupabaseClient }) {
 
   useEffect(() => {
     let alive = true;
-    client.auth.getSession().then(({ data }) => {
+    // onAuthStateChange emite un evento INITIAL_SESSION al suscribirse, así que
+    // no hace falta llamar además a getSession() por separado (evita una
+    // segunda fuente de verdad compitiendo con la primera).
+    const { data: sub } = client.auth.onAuthStateChange((_event, session) => {
       if (!alive) return;
-      setAuthed(!!data.session);
+      setAuthed(!!session);
       setReady(true);
     });
-    const { data: sub } = client.auth.onAuthStateChange((_e, session) => setAuthed(!!session));
     return () => {
       alive = false;
       sub.subscription.unsubscribe();

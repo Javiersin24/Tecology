@@ -3,7 +3,7 @@ import type { CatalogData, Category, Lead, NewLead, Product, Tier } from "./type
 import { CATEGORY_LABELS, CATEGORY_ORDER, SEED_DATA } from "./seed";
 import { supabase } from "./supabaseClient";
 import type { DataStore } from "./store";
-import { compressToDataUrl } from "./store";
+import { compressToDataUrl } from "./imageCompress";
 
 const BUCKET = "product-images";
 
