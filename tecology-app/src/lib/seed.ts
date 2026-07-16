@@ -118,6 +118,14 @@ export const SEED_DATA: CatalogData = {
 
 export const CATEGORY_ORDER: string[] = ["laptops", "desktop", "combos", "monitores"];
 
+/** Servicios incluidos por defecto (cuando un producto no define los suyos). */
+export const DEFAULT_SERVICES: string[] = [
+  "Garantía on-site",
+  "Configuración lista",
+  "Migración de datos",
+  "Soporte Tecology",
+];
+
 export const CATEGORY_LABELS: Record<string, string> = {
   laptops: "Laptops empresariales",
   desktop: "Computadoras de escritorio",

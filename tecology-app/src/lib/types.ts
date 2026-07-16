@@ -28,6 +28,8 @@ export interface Product {
   specs: Spec[];
   ideal: string;
   features: string[];
+  /** Servicios incluidos (editables por producto). */
+  services?: string[];
   /** Solo combos. */
   includes?: ComboItem[];
   /** IDs de los tipos de uso a los que aplica este producto. */

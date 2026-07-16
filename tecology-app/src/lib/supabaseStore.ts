@@ -20,6 +20,7 @@ interface ProductRow {
   active: boolean;
   specs: Product["specs"] | null;
   features: string[] | null;
+  services: string[] | null;
   includes: Product["includes"] | null;
   uses: string[] | null;
   sort: number | null;
@@ -58,6 +59,7 @@ function rowToProduct(r: ProductRow): Product {
     specs: Array.isArray(r.specs) ? r.specs : [],
     ideal: r.ideal || "",
     features: Array.isArray(r.features) ? r.features : [],
+    services: Array.isArray(r.services) ? r.services : [],
     includes: r.includes && r.includes.length ? r.includes : undefined,
     uses: Array.isArray(r.uses) ? r.uses : [],
   };
@@ -141,7 +143,7 @@ export class SupabaseDataStore implements DataStore {
         productRows.push({
           id: p.id, category: key, tier: p.tier, name: p.name, model: p.model, price: p.price,
           warranty: p.warranty, ideal: p.ideal, img: p.img, active: p.active !== false,
-          specs: p.specs, features: p.features, includes: p.includes ?? null,
+          specs: p.specs, features: p.features, services: p.services ?? [], includes: p.includes ?? null,
           uses: p.uses ?? [], sort: i,
         });
       });
@@ -174,7 +176,7 @@ export class SupabaseDataStore implements DataStore {
         productRows.push({
           id: p.id, category: key, tier: p.tier, name: p.name, model: p.model, price: p.price,
           warranty: p.warranty, ideal: p.ideal, img: p.img, active: true,
-          specs: p.specs, features: p.features, includes: p.includes ?? null, uses: p.uses ?? [], sort: i,
+          specs: p.specs, features: p.features, services: p.services ?? [], includes: p.includes ?? null, uses: p.uses ?? [], sort: i,
         });
       });
     }

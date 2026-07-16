@@ -25,11 +25,15 @@ create table if not exists public.products (
   active     boolean not null default true,
   specs      jsonb not null default '[]'::jsonb,
   features   jsonb not null default '[]'::jsonb,
+  services   jsonb not null default '[]'::jsonb,
   includes   jsonb,
   uses       jsonb not null default '[]'::jsonb,
   sort       integer not null default 0,
   updated_at timestamptz not null default now()
 );
+
+-- Migración segura si la tabla ya existía sin la columna services:
+alter table public.products add column if not exists services jsonb not null default '[]'::jsonb;
 
 create table if not exists public.use_cases (
   id    text primary key,
@@ -118,9 +122,9 @@ for (const cat of CATEGORY_ORDER) {
   const block = SEED_DATA.categories[cat];
   block.plans.forEach((p, i) => {
     lines.push(
-      `insert into public.products (id,category,tier,name,model,price,warranty,ideal,img,active,specs,features,includes,uses,sort) values (` +
+      `insert into public.products (id,category,tier,name,model,price,warranty,ideal,img,active,specs,features,services,includes,uses,sort) values (` +
         `${q(p.id)},${q(cat)},${q(p.tier)},${q(p.name)},${q(p.model)},${q(p.price)},${q(p.warranty)},${q(p.ideal)},${q(p.img)},true,` +
-        `${j(p.specs)},${j(p.features)},${p.includes ? j(p.includes) : "null"},${j(p.uses ?? [])},${i}) on conflict (id) do nothing;`,
+        `${j(p.specs)},${j(p.features)},${j(p.services ?? [])},${p.includes ? j(p.includes) : "null"},${j(p.uses ?? [])},${i}) on conflict (id) do nothing;`,
     );
   });
 }

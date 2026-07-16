@@ -6,7 +6,7 @@ import Link from "next/link";
 import { store } from "@/lib/store";
 import { useCatalogData } from "@/lib/useStore";
 import { CATEGORY_META, COUNTRY_CODES, COLOR } from "@/lib/theme";
-import { CATEGORY_ORDER, EMPTY_CATALOG } from "@/lib/seed";
+import { CATEGORY_ORDER, DEFAULT_SERVICES, EMPTY_CATALOG } from "@/lib/seed";
 import type { CategoryKey, Product, UseCase } from "@/lib/types";
 
 type Screen = "welcome" | "register" | "categories" | "catalog" | "detail" | "final";
@@ -649,7 +649,7 @@ function PlanCard({ product: p, isFav, onFav, onOpen }: { product: Product; isFa
         <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: rec ? "#6ea0ff" : "#8b93a7" }}>{p.tier}</span>
         <button onClick={onFav} aria-label="Favorito" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, lineHeight: 1, color: isFav ? COLOR.favPink : "rgba(255,255,255,.4)" }}>{isFav ? "♥" : "♡"}</button>
       </div>
-      <div style={{ height: rec ? 220 : 196, borderRadius: 14, overflow: "hidden", background: p.img ? "#fff" : shotBg, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+      <div style={{ aspectRatio: "1 / 1", width: "100%", borderRadius: 14, overflow: "hidden", background: p.img ? "transparent" : shotBg, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
         {p.img ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={p.img} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
@@ -669,7 +669,7 @@ function PlanCard({ product: p, isFav, onFav, onOpen }: { product: Product; isFa
       </div>
       <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 14 }}>
         <span style={{ fontSize: 30, fontWeight: 800, color: COLOR.green, letterSpacing: "-.02em" }}>{p.price}</span>
-        <span style={{ fontSize: 12.5, color: muted }}>+ IVA</span>
+        <span style={{ fontSize: 12.5, color: muted }}>+ ITBMS</span>
       </div>
       <button onClick={onOpen} style={{ width: "100%", padding: 14, borderRadius: 13, border: "none", cursor: "pointer", fontSize: 14.5, fontWeight: 600, background: rec ? COLOR.blue : "rgba(255,255,255,.1)", color: "#fff" }}>
         Ver detalles
@@ -692,15 +692,15 @@ function Detail({
   onQuote: () => void;
 }) {
   const rec = p.tier === "Recomendado";
-  const services = ["Garantía on-site", "Configuración lista", "Migración de datos", "Soporte Tecology"];
+  const services = p.services && p.services.length ? p.services : DEFAULT_SERVICES;
   const accessories = ["Docking Station USB-C", "Mouse inalámbrico", "Mochila ejecutiva", "UPS 650VA"];
   return (
     <>
       <div className="tec-scroll" style={{ position: "absolute", inset: 0, overflowY: "auto", padding: "0 0 130px", background: "#fff", animation: "tecUp .5s ease both" }}>
-        <div style={{ height: 300, background: p.img ? "#fff" : "repeating-linear-gradient(135deg,#f1f3f8,#f1f3f8 12px,#e9edf4 12px,#e9edf4 24px)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+        <div style={{ aspectRatio: "1 / 1", width: "100%", background: p.img ? "#f5f5f7" : "repeating-linear-gradient(135deg,#f1f3f8,#f1f3f8 12px,#e9edf4 12px,#e9edf4 24px)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
           {p.img ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={p.img} alt={p.name} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", padding: 24 }} />
+            <img src={p.img} alt={p.name} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain" }} />
           ) : (
             <span style={{ fontFamily: "monospace", fontSize: 11, color: "#9aa3b5", letterSpacing: ".1em" }}>product gallery</span>
           )}
@@ -718,7 +718,7 @@ function Detail({
           <div style={{ color: COLOR.muted, fontSize: 14, marginTop: 3 }}>{p.model}</div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 6, margin: "14px 0 4px" }}>
             <span style={{ fontSize: 34, fontWeight: 800, color: COLOR.green, letterSpacing: "-.02em" }}>{p.price}</span>
-            <span style={{ fontSize: 13, color: COLOR.muted }}>+ IVA</span>
+            <span style={{ fontSize: 13, color: COLOR.muted }}>+ ITBMS</span>
           </div>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 6, color: COLOR.muted, fontSize: 13, marginBottom: 22 }}>🛡 {p.warranty}</div>
 

@@ -4,7 +4,7 @@ import { useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { store } from "@/lib/store";
 import { useCatalogData, useLeads } from "@/lib/useStore";
-import { EMPTY_CATALOG } from "@/lib/seed";
+import { DEFAULT_SERVICES, EMPTY_CATALOG } from "@/lib/seed";
 import { COLOR } from "@/lib/theme";
 import type { CatalogData, Product, Spec, Tier, UseCase } from "@/lib/types";
 
@@ -27,7 +27,7 @@ const TIER_ORDER: Record<string, number> = { "Básico": 0, "Recomendado": 1, "Em
 interface Draft {
   name: string; model: string; price: string; tier: Tier; warranty: string;
   img: string; ideal: string; specs: Spec[]; featuresText: string;
-  includesText: string; uses: string[];
+  servicesText: string; includesText: string; uses: string[];
 }
 interface UseDraft { icon: string; name: string; desc: string }
 
@@ -43,7 +43,7 @@ function blankDraft(cat: CatKey): Draft {
   const specs: Spec[] = cat === "combos"
     ? [{ k: "Equipo", v: "" }, { k: "Monitor", v: "" }, { k: "Periféricos", v: "" }, { k: "Extra", v: "" }]
     : [{ k: "Procesador", v: "" }, { k: "Memoria", v: "" }, { k: "Almacenamiento", v: "" }, { k: "Pantalla", v: "" }];
-  return { name: "", model: "", price: "$", tier: "Básico", warranty: "Garantía 1 año", img: "", ideal: "", specs, featuresText: "", includesText: "", uses: [] };
+  return { name: "", model: "", price: "$", tier: "Básico", warranty: "Garantía 1 año", img: "", ideal: "", specs, featuresText: "", servicesText: DEFAULT_SERVICES.join("\n"), includesText: "", uses: [] };
 }
 
 function slug(name: string): string {
@@ -87,6 +87,7 @@ export default function AdminApp({ onSignOut }: { onSignOut?: () => void }) {
           warranty: p.warranty || "", img: p.img || "", ideal: p.ideal || "",
           specs: (p.specs || []).map((s) => ({ k: s.k, v: s.v })),
           featuresText: (p.features || []).join("\n"),
+          servicesText: (p.services && p.services.length ? p.services : DEFAULT_SERVICES).join("\n"),
           includesText: (p.includes || []).map((i) => (i.icon ? i.icon + " " : "") + i.label).join("\n"),
           uses: Array.isArray(p.uses) ? [...p.uses] : [],
         }
@@ -98,6 +99,7 @@ export default function AdminApp({ onSignOut }: { onSignOut?: () => void }) {
   const saveDraft = () => {
     if (!draft || !draft.name.trim() || !editCat) return;
     const features = draft.featuresText.split("\n").map((x) => x.trim()).filter(Boolean);
+    const services = draft.servicesText.split("\n").map((x) => x.trim()).filter(Boolean);
     let includes: { icon: string; label: string }[] | null = null;
     if (editCat === "combos") {
       includes = draft.includesText.split("\n").map((x) => x.trim()).filter(Boolean).map((line) => {
@@ -110,7 +112,7 @@ export default function AdminApp({ onSignOut }: { onSignOut?: () => void }) {
       if (!block) return;
       const prod: Partial<Product> = {
         name: draft.name.trim(), model: draft.model, price: draft.price, tier: draft.tier,
-        warranty: draft.warranty, img: draft.img, ideal: draft.ideal, features,
+        warranty: draft.warranty, img: draft.img, ideal: draft.ideal, features, services,
         specs: draft.specs.filter((s) => s.k && s.v),
         uses: Array.isArray(draft.uses) ? draft.uses : [],
       };
@@ -488,6 +490,10 @@ export default function AdminApp({ onSignOut }: { onSignOut?: () => void }) {
             <div style={{ marginBottom: 14 }}>
               <label style={labelStyle}>Características destacadas <span style={{ color: "#adb2bd", fontWeight: 400 }}>— una por línea</span></label>
               <textarea value={draft.featuresText} onChange={(e) => setDraft({ ...draft, featuresText: e.target.value })} rows={3} placeholder={"Seguridad Intel vPro\nCarga rápida"} style={areaStyle} />
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>Servicios incluidos <span style={{ color: "#adb2bd", fontWeight: 400 }}>— uno por línea</span></label>
+              <textarea value={draft.servicesText} onChange={(e) => setDraft({ ...draft, servicesText: e.target.value })} rows={3} placeholder={"Garantía on-site\nConfiguración lista"} style={areaStyle} />
             </div>
             {editCat === "combos" && (
               <div style={{ marginBottom: 14 }}>
