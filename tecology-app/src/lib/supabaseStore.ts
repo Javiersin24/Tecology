@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import type { CatalogData, Category, Lead, NewLead, Product, Tier } from "./types";
 import { CATEGORY_LABELS, CATEGORY_ORDER, SEED_DATA } from "./seed";
 import { supabase } from "./supabaseClient";
@@ -86,9 +86,25 @@ function rowToLead(r: LeadRow): Lead {
 }
 
 export class SupabaseDataStore implements DataStore {
+  // Un único canal de tiempo real para toda la app + emisión local: la UI del
+  // dispositivo que edita se refresca de inmediato, y el tiempo real (best-effort)
+  // sincroniza a los demás. Si el tiempo real falla, la app sigue funcionando.
+  private listeners = new Set<() => void>();
+  private channel: RealtimeChannel | null = null;
+
   private get db(): SupabaseClient {
     if (!supabase) throw new Error("Supabase no está configurado");
     return supabase;
+  }
+
+  private emit(): void {
+    this.listeners.forEach((l) => {
+      try {
+        l();
+      } catch {
+        /* un listener no debe tumbar a los demás */
+      }
+    });
   }
 
   async load(): Promise<CatalogData> {
@@ -139,6 +155,7 @@ export class SupabaseDataStore implements DataStore {
 
     await this.deleteMissing("products", productRows.map((r) => r.id));
     await this.deleteMissing("use_cases", useRows.map((r) => r.id));
+    this.emit();
   }
 
   /** Borra las filas cuyo id no esté en `keep`. */
@@ -164,6 +181,7 @@ export class SupabaseDataStore implements DataStore {
     const useRows = SEED_DATA.useCases.map((u, i) => ({ id: u.id, icon: u.icon, name: u.name, desc: u.desc, sort: i }));
     await this.db.from("products").upsert(productRows);
     await this.db.from("use_cases").upsert(useRows);
+    this.emit();
   }
 
   async getLeads(): Promise<Lead[]> {
@@ -175,17 +193,20 @@ export class SupabaseDataStore implements DataStore {
   async addLead(lead: NewLead): Promise<string> {
     const { data, error } = await this.db.from("leads").insert(leadToRow(lead)).select("id").single();
     if (error) throw error;
+    this.emit();
     return (data as { id: string }).id;
   }
 
   async updateLead(id: string, patch: Partial<Lead>): Promise<void> {
     const { error } = await this.db.from("leads").update(leadToRow(patch)).eq("id", id);
     if (error) throw error;
+    this.emit();
   }
 
   async clearLeads(): Promise<void> {
     const { error } = await this.db.from("leads").delete().not("id", "is", null);
     if (error) throw error;
+    this.emit();
   }
 
   async uploadImage(file: Blob): Promise<string> {
@@ -201,15 +222,37 @@ export class SupabaseDataStore implements DataStore {
   }
 
   subscribe(listener: () => void): () => void {
-    const channel = this.db
-      .channel("tecology-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, listener)
-      .on("postgres_changes", { event: "*", schema: "public", table: "use_cases" }, listener)
-      .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, listener)
-      .subscribe();
+    this.listeners.add(listener);
+    this.ensureChannel();
     return () => {
-      this.db.removeChannel(channel);
+      this.listeners.delete(listener);
+      if (this.listeners.size === 0 && this.channel) {
+        try {
+          this.db.removeChannel(this.channel);
+        } catch {
+          /* noop */
+        }
+        this.channel = null;
+      }
     };
+  }
+
+  /** Abre (una sola vez) el canal de tiempo real. Best-effort: si falla, la app
+   *  sigue funcionando gracias a la emisión local tras cada escritura. */
+  private ensureChannel(): void {
+    if (this.channel) return;
+    try {
+      const notify = () => this.emit();
+      this.channel = this.db
+        .channel("tecology-changes")
+        .on("postgres_changes", { event: "*", schema: "public", table: "products" }, notify)
+        .on("postgres_changes", { event: "*", schema: "public", table: "use_cases" }, notify)
+        .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, notify)
+        .subscribe();
+    } catch (e) {
+      console.warn("Tecology: tiempo real no disponible (se usará refresco local):", e);
+      this.channel = null;
+    }
   }
 }
 
