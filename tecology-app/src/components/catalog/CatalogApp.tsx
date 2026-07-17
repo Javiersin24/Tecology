@@ -130,6 +130,7 @@ export default function CatalogApp() {
           body: JSON.stringify({
             nombre: form.nombre, apellido: form.apellido, empresa: form.empresa,
             cargo: form.cargo, correo: form.correo, codigo: form.codigo, telefono: form.telefono,
+            colaboradores: form.colaboradores, renovar: renew,
             items: favoriteProducts.map((p) => ({ zohoItemId: p.zohoItemId, name: p.name, price: p.price, qty: 1 })),
           }),
         });

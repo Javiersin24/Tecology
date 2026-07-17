@@ -17,6 +17,8 @@ interface QuoteBody {
   correo?: string;
   codigo?: string;
   telefono?: string;
+  colaboradores?: string;
+  renovar?: string | null;
   items?: QuoteItem[];
 }
 
@@ -58,6 +60,7 @@ export async function POST(req: Request) {
       phone: [body.codigo, body.telefono].filter(Boolean).join(" ").trim(),
       firstName: body.nombre?.trim() || nombreCompleto,
       lastName: body.apellido?.trim() || "",
+      designation: body.cargo?.trim() || "",
     });
 
     const lineItems = items.map((i) => ({
@@ -68,9 +71,23 @@ export async function POST(req: Request) {
       ...(ZOHO_TAX_ID ? { tax_id: ZOHO_TAX_ID } : {}),
     }));
 
+    // Datos del registro que no tienen un campo propio en el contacto de Zoho
+    // (colaboradores, intención de renovación) quedan visibles en la nota de
+    // la cotización, para que el asesor los tenga a la mano sin perder nada
+    // de lo que el visitante llenó en el registro.
+    const noteLines = [
+      body.cargo?.trim() ? `Cargo: ${body.cargo.trim()}` : null,
+      body.colaboradores?.trim() ? `Colaboradores: ${body.colaboradores.trim()}` : null,
+      body.renovar ? `¿Planea renovar equipos?: ${body.renovar}` : null,
+    ].filter(Boolean);
+
     const created = await zohoJson<{ estimate: { estimate_id: string } }>("/estimates?ignore_auto_number_generation=false", {
       method: "POST",
-      body: JSON.stringify({ customer_id: customerId, line_items: lineItems }),
+      body: JSON.stringify({
+        customer_id: customerId,
+        line_items: lineItems,
+        ...(noteLines.length ? { notes: noteLines.join("\n") } : {}),
+      }),
     });
     const estimateId = created.estimate.estimate_id;
 
@@ -98,6 +115,7 @@ async function findOrCreateContact(p: {
   phone: string;
   firstName: string;
   lastName: string;
+  designation: string;
 }): Promise<string> {
   const found = await zohoJson<{ contacts: { contact_id: string }[] }>(`/contacts?email=${encodeURIComponent(p.email)}`);
   if (found.contacts && found.contacts.length > 0) return found.contacts[0].contact_id;
@@ -114,6 +132,7 @@ async function findOrCreateContact(p: {
           last_name: p.lastName,
           email: p.email,
           phone: p.phone,
+          designation: p.designation,
           is_primary_contact: true,
         },
       ],
