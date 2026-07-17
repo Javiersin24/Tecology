@@ -7,26 +7,36 @@ import { zohoFetch, zohoJson, ZOHO_TAX_ID } from "./zoho";
 // camino de código.
 
 // Algunas organizaciones de Zoho exigen un "Vendedor" (salesperson) en cada
-// cotización. Se resuelve una vez: si defines ZOHO_SALESPERSON_ID se usa ese;
-// si no, se toma el primer vendedor de la cuenta. Se cachea en memoria.
-let cachedSalespersonId: string | null | undefined;
+// cotización. Si defines ZOHO_SALESPERSON_ID se usa ese; si no, se toma el
+// primer vendedor de la cuenta. Solo se cachea un resultado válido.
+export interface ZohoSalesperson {
+  salesperson_id: string;
+  salesperson_name?: string;
+  status?: string;
+}
+let cachedSalespersonId: string | null = null;
+
+/** Lista los vendedores de la cuenta. Lanza el error real si la API falla. */
+export async function listSalespersons(): Promise<ZohoSalesperson[]> {
+  const data = await zohoJson<{ salespersons: ZohoSalesperson[] }>("/salespersons");
+  return data.salespersons || [];
+}
 
 async function getSalespersonId(): Promise<string | null> {
-  if (cachedSalespersonId !== undefined) return cachedSalespersonId;
+  if (cachedSalespersonId) return cachedSalespersonId;
   const fromEnv = process.env.ZOHO_SALESPERSON_ID?.trim();
   if (fromEnv) {
     cachedSalespersonId = fromEnv;
     return cachedSalespersonId;
   }
   try {
-    const data = await zohoJson<{ salespersons: { salesperson_id: string; status?: string }[] }>("/salespersons");
-    const list = data.salespersons || [];
+    const list = await listSalespersons();
     const active = list.find((s) => s.status !== "inactive") || list[0];
-    cachedSalespersonId = active?.salesperson_id ?? null;
+    if (active?.salesperson_id) cachedSalespersonId = active.salesperson_id;
+    return cachedSalespersonId;
   } catch {
-    cachedSalespersonId = null;
+    return null; // no se cachea: se reintenta en la próxima petición
   }
-  return cachedSalespersonId;
 }
 
 export interface QuoteItemInput {
