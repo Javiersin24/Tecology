@@ -709,6 +709,27 @@ function ZohoSettingsPanel() {
     }
   };
 
+  const [creatingSp, setCreatingSp] = useState(false);
+  const [spResult, setSpResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const createSalesperson = async () => {
+    setCreatingSp(true); setSpResult(null);
+    try {
+      const token = await adminToken();
+      if (!token) throw new Error("Sesión no disponible. Vuelve a iniciar sesión.");
+      const res = await fetch("/api/admin/zoho-salesperson", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: "Tecology" }),
+      });
+      const body = await res.json();
+      setSpResult({ ok: !!body.ok, message: body.message || body.error || "Sin detalle." });
+    } catch (e) {
+      setSpResult({ ok: false, message: e instanceof Error ? e.message : "No se pudo crear el vendedor." });
+    } finally {
+      setCreatingSp(false);
+    }
+  };
+
   return (
     <div>
       <h2 style={{ margin: "0 0 6px", fontSize: 19, fontWeight: 700, letterSpacing: "-.01em" }}>Cotizaciones reales en Zoho Books</h2>
@@ -730,6 +751,24 @@ function ZohoSettingsPanel() {
         {testResult && (
           <div style={{ marginTop: 14, padding: "12px 14px", borderRadius: 11, fontSize: 13, lineHeight: 1.5, background: testResult.ok ? "#eef9f1" : "#fdf2f2", border: `1px solid ${testResult.ok ? "#b9e6c6" : "#f1d5d5"}`, color: testResult.ok ? "#0e9155" : "#c0392b" }}>
             {testResult.ok ? "✓ " : "✕ "}{testResult.message}
+          </div>
+        )}
+      </div>
+
+      {/* Vendedor: algunas cuentas de Zoho lo exigen en cada cotización */}
+      <div style={{ border: "1px solid #ececf1", borderRadius: 14, padding: "16px 18px", marginBottom: 22, background: "#fff", maxWidth: 640 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <div style={{ fontSize: 14.5, fontWeight: 700 }}>Vendedor</div>
+            <div style={{ fontSize: 12.5, color: COLOR.muted2, marginTop: 2, lineHeight: 1.5 }}>Si tu Zoho exige un vendedor en las cotizaciones y la cuenta no tiene ninguno, créalo aquí con un clic (se llamará “Tecology”). Si ya tienes uno, no se crea otro.</div>
+          </div>
+          <button onClick={createSalesperson} disabled={creatingSp} style={{ padding: "11px 18px", borderRadius: 11, border: `1px solid ${COLOR.borderInput}`, background: "#fff", color: COLOR.ink, fontSize: 13, fontWeight: 600, cursor: creatingSp ? "wait" : "pointer" }}>
+            {creatingSp ? "Creando…" : "Crear vendedor"}
+          </button>
+        </div>
+        {spResult && (
+          <div style={{ marginTop: 14, padding: "12px 14px", borderRadius: 11, fontSize: 13, lineHeight: 1.5, background: spResult.ok ? "#eef9f1" : "#fdf2f2", border: `1px solid ${spResult.ok ? "#b9e6c6" : "#f1d5d5"}`, color: spResult.ok ? "#0e9155" : "#c0392b" }}>
+            {spResult.ok ? "✓ " : "✕ "}{spResult.message}
           </div>
         )}
       </div>

@@ -22,6 +22,16 @@ export async function listSalespersons(): Promise<ZohoSalesperson[]> {
   return data.salespersons || [];
 }
 
+/** Crea un vendedor en Zoho Books. */
+export async function createSalesperson(name: string, email?: string): Promise<ZohoSalesperson> {
+  const created = await zohoJson<{ salesperson: ZohoSalesperson }>("/salespersons", {
+    method: "POST",
+    body: JSON.stringify({ salesperson_name: name, ...(email ? { salesperson_email: email } : {}) }),
+  });
+  cachedSalespersonId = created.salesperson.salesperson_id; // úsalo de inmediato
+  return created.salesperson;
+}
+
 async function getSalespersonId(): Promise<string | null> {
   if (cachedSalespersonId) return cachedSalespersonId;
   const fromEnv = process.env.ZOHO_SALESPERSON_ID?.trim();
