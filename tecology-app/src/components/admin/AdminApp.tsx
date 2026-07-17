@@ -692,12 +692,47 @@ function ZohoSettingsPanel() {
     navigator.clipboard?.writeText(refreshToken).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
   };
 
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const testConnection = async () => {
+    setTesting(true); setTestResult(null);
+    try {
+      const token = await adminToken();
+      if (!token) throw new Error("Sesión no disponible. Vuelve a iniciar sesión.");
+      const res = await fetch("/api/admin/zoho-test", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+      const body = await res.json();
+      setTestResult({ ok: !!body.ok, message: body.message || body.error || "Sin detalle." });
+    } catch (e) {
+      setTestResult({ ok: false, message: e instanceof Error ? e.message : "No se pudo probar la conexión." });
+    } finally {
+      setTesting(false);
+    }
+  };
+
   return (
     <div>
       <h2 style={{ margin: "0 0 6px", fontSize: 19, fontWeight: 700, letterSpacing: "-.01em" }}>Cotizaciones reales en Zoho Books</h2>
       <p style={{ margin: "0 0 18px", color: COLOR.muted2, fontSize: 13.5, lineHeight: 1.5, maxWidth: 640 }}>
-        Cuando esto está conectado, cada visitante que toque <b>“Solicitar cotización”</b> genera una cotización real en tu Zoho Books y descarga su PDF. Este panel te ayuda a obtener el <b>refresh token</b> que necesitas — el resto de la conexión (las variables en Vercel) las agregas tú una sola vez.
+        Cuando esto está conectado, cada visitante que toque <b>“Solicitar cotización”</b> genera una cotización real en tu Zoho Books y descarga <b>ese mismo PDF</b>. Este panel te ayuda a obtener el <b>refresh token</b> que necesitas — el resto de la conexión (las variables en Vercel) las agregas tú una sola vez.
       </p>
+
+      {/* Diagnóstico: prueba la conexión completa y muestra el error real */}
+      <div style={{ border: "1px solid #ececf1", borderRadius: 14, padding: "16px 18px", marginBottom: 22, background: "#fff", maxWidth: 640 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontSize: 14.5, fontWeight: 700 }}>Estado de la conexión</div>
+            <div style={{ fontSize: 12.5, color: COLOR.muted2, marginTop: 2 }}>Crea y borra una cotización de prueba para verificar que todo funciona.</div>
+          </div>
+          <button onClick={testConnection} disabled={testing} style={{ marginLeft: "auto", padding: "11px 18px", borderRadius: 11, border: "none", background: testing ? "#7ba7ff" : COLOR.ink, color: "#fff", fontSize: 13, fontWeight: 600, cursor: testing ? "wait" : "pointer" }}>
+            {testing ? "Probando…" : "Probar conexión"}
+          </button>
+        </div>
+        {testResult && (
+          <div style={{ marginTop: 14, padding: "12px 14px", borderRadius: 11, fontSize: 13, lineHeight: 1.5, background: testResult.ok ? "#eef9f1" : "#fdf2f2", border: `1px solid ${testResult.ok ? "#b9e6c6" : "#f1d5d5"}`, color: testResult.ok ? "#0e9155" : "#c0392b" }}>
+            {testResult.ok ? "✓ " : "✕ "}{testResult.message}
+          </div>
+        )}
+      </div>
 
       <div style={bannerStyle}>
         <span style={{ fontSize: 15 }}>1️⃣</span>

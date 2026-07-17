@@ -79,6 +79,7 @@ export default function CatalogApp() {
     setScreen("welcome"); setHistory([]); setProductId(null); setRenew(null);
     setUse(null); setCategory(null); setFavs([]); setForm(EMPTY_FORM);
     setLeadId(null); setVisited([]); setViewed([]); setNavStart(null);
+    setQuotePhase("idle"); setQuoteDownloaded(false);
   };
 
   // ---- leads ------------------------------------------------------------
@@ -98,8 +99,15 @@ export default function CatalogApp() {
       .then((id) => setLeadId(id))
       .catch(() => {});
   };
-  const [quoting, setQuoting] = useState(false);
+  // Estado de la cotización en la pantalla de cierre.
+  // idle → loading → done (con downloaded=true si se descargó el PDF de Zoho).
+  const [quotePhase, setQuotePhase] = useState<"idle" | "loading" | "done">("idle");
+  const [quoteDownloaded, setQuoteDownloaded] = useState(false);
+
   const requestQuote = async () => {
+    if (quotePhase === "loading") return;
+    setQuotePhase("loading");
+
     if (leadId) {
       void store
         .updateLead(leadId, {
@@ -108,15 +116,10 @@ export default function CatalogApp() {
         })
         .catch(() => {});
     }
-    // Intenta generar una cotización real en Zoho (si está configurado) y
-    // descargar su PDF. Si Zoho no está listo o falla, no se interrumpe la
-    // experiencia del visitante: igual se cierra el flujo con normalidad.
-    //
-    // Marcar "favorito" nunca fue obligatorio para poder cotizar: se cotizan
-    // los favoritos si los hay, más el producto que se estaba viendo (si llegó
-    // aquí desde "Ver detalles"). Si no hay ni lo uno ni lo otro, se usa el
-    // plan Recomendado de la categoría actual como último recurso — así el
-    // botón "Solicitar cotización" siempre cotiza algo, sin pasos extra.
+
+    // Se cotizan: los favoritos (si hay) + el producto que se estaba viendo;
+    // si no hay ninguno, el plan Recomendado de la categoría actual. Así el
+    // botón siempre cotiza algo, sin exigir marcar "favorito".
     const findProduct = (id: string): Product | null => {
       for (const k of Object.keys(data.categories)) {
         const p = data.categories[k].plans.find((x) => x.id === id);
@@ -135,8 +138,8 @@ export default function CatalogApp() {
       if (fallback) quoteProducts = [fallback];
     }
 
+    let downloaded = false;
     if (quoteProducts.length > 0 && form.correo.trim()) {
-      setQuoting(true);
       try {
         const res = await fetch("/api/zoho/quote", {
           method: "POST",
@@ -148,7 +151,7 @@ export default function CatalogApp() {
             items: quoteProducts.map((p) => ({ zohoItemId: p.zohoItemId, name: p.name, price: p.price, qty: 1 })),
           }),
         });
-        if (res.ok) {
+        if (res.ok && res.headers.get("content-type")?.includes("pdf")) {
           const blob = await res.blob();
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
@@ -158,14 +161,16 @@ export default function CatalogApp() {
           a.click();
           document.body.removeChild(a);
           setTimeout(() => URL.revokeObjectURL(url), 4000);
+          downloaded = true;
+        } else {
+          console.error("Tecology: la cotización de Zoho no se generó (revise el panel admin → Cotizaciones (Zoho) → Probar conexión).");
         }
       } catch (e) {
         console.error("Tecology: no se pudo generar la cotización en Zoho", e);
-      } finally {
-        setQuoting(false);
       }
     }
-    reset();
+    setQuoteDownloaded(downloaded);
+    setQuotePhase("done");
   };
 
   const toggleFav = (id: string) => {
@@ -298,7 +303,8 @@ export default function CatalogApp() {
                   favList={favProducts(data, favs)}
                   onQuote={requestQuote}
                   onReset={reset}
-                  quoting={quoting}
+                  phase={quotePhase}
+                  downloaded={quoteDownloaded}
                 />
               )}
             </motion.div>
@@ -862,37 +868,59 @@ function Detail({
 // Pantalla final
 // ===========================================================================
 function Final({
-  favList, onQuote, onReset, quoting,
+  favList, onQuote, onReset, phase, downloaded,
 }: {
   favList: { name: string; price: string }[];
   onQuote: () => void;
   onReset: () => void;
-  quoting: boolean;
+  phase: "idle" | "loading" | "done";
+  downloaded: boolean;
 }) {
+  const loading = phase === "loading";
+  const done = phase === "done";
   return (
     <div className="tec-scroll" style={{ position: "absolute", inset: 0, overflowY: "auto", background: "radial-gradient(120% 70% at 50% 0%, #0e1e3e 0%, #070b16 62%, #05070d 100%)", animation: "tecFade .5s ease both" }}>
       <div style={{ padding: "120px 28px 40px", minHeight: "100%", display: "flex", flexDirection: "column" }}>
-        <div style={{ width: 64, height: 64, borderRadius: 18, background: "linear-gradient(135deg,#0A66FF,#2f80ff)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, marginBottom: 26, animation: "tecScale .6s ease both", boxShadow: "0 20px 50px -16px rgba(10,102,255,.7)", color: "#fff" }}>✓</div>
-        <h2 style={{ margin: 0, color: "#fff", fontSize: 30, lineHeight: 1.14, fontWeight: 700, letterSpacing: "-.02em", textWrap: "balance", animation: "tecUp .6s .08s ease both" }}>¿Le gustaría recibir una propuesta personalizada?</h2>
-        <p style={{ margin: "16px 0 0", color: "#98a2bd", fontSize: 15.5, lineHeight: 1.55, animation: "tecUp .6s .16s ease both" }}>Uno de nuestros asesores puede preparar una cotización según las necesidades de su empresa.</p>
+        <div style={{ width: 64, height: 64, borderRadius: 18, background: done ? "linear-gradient(135deg,#12b76a,#0e9155)" : "linear-gradient(135deg,#0A66FF,#2f80ff)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, marginBottom: 26, animation: "tecScale .6s ease both", boxShadow: "0 20px 50px -16px rgba(10,102,255,.7)", color: "#fff" }}>✓</div>
 
-        {favList.length > 0 && (
-          <div style={{ marginTop: 24, background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 16, padding: "16px 18px", animation: "tecUp .6s .2s ease both" }}>
-            <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: "#7f8aa6", marginBottom: 10 }}>Sus favoritos ({favList.length})</div>
-            {favList.map((f, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0" }}>
-                <span style={{ color: "#e9eefc", fontSize: 14, fontWeight: 500 }}>{f.name}</span>
-                <span style={{ color: COLOR.green, fontSize: 14, fontWeight: 700 }}>{f.price}</span>
+        {!done ? (
+          <>
+            <h2 style={{ margin: 0, color: "#fff", fontSize: 30, lineHeight: 1.14, fontWeight: 700, letterSpacing: "-.02em", textWrap: "balance", animation: "tecUp .6s .08s ease both" }}>¿Le gustaría recibir una propuesta personalizada?</h2>
+            <p style={{ margin: "16px 0 0", color: "#98a2bd", fontSize: 15.5, lineHeight: 1.55, animation: "tecUp .6s .16s ease both" }}>Uno de nuestros asesores puede preparar una cotización según las necesidades de su empresa.</p>
+
+            {favList.length > 0 && (
+              <div style={{ marginTop: 24, background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 16, padding: "16px 18px", animation: "tecUp .6s .2s ease both" }}>
+                <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: "#7f8aa6", marginBottom: 10 }}>Sus favoritos ({favList.length})</div>
+                {favList.map((f, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0" }}>
+                    <span style={{ color: "#e9eefc", fontSize: 14, fontWeight: 500 }}>{f.name}</span>
+                    <span style={{ color: COLOR.green, fontSize: 14, fontWeight: 700 }}>{f.price}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        )}
+            )}
 
-        <div style={{ marginTop: 30, display: "flex", flexDirection: "column", gap: 11, animation: "tecUp .6s .26s ease both" }}>
-          <button onClick={onQuote} disabled={quoting} style={{ width: "100%", padding: 16, border: "none", borderRadius: 14, background: quoting ? "#0e9155" : COLOR.green, color: "#fff", fontSize: 15.5, fontWeight: 600, cursor: quoting ? "wait" : "pointer", boxShadow: "0 14px 32px -12px rgba(18,183,106,.6)", opacity: quoting ? 0.85 : 1 }}>{quoting ? "Generando cotización…" : "Solicitar cotización"}</button>
-          <button onClick={onReset} style={{ width: "100%", padding: 16, border: "1px solid rgba(255,255,255,.18)", borderRadius: 14, background: "rgba(255,255,255,.06)", color: "#fff", fontSize: 15.5, fontWeight: 600, cursor: "pointer" }}>Agendar reunión</button>
-          <button onClick={onReset} style={{ width: "100%", padding: 16, border: "1px solid rgba(255,255,255,.18)", borderRadius: 14, background: "transparent", color: "#c3ccdf", fontSize: 15.5, fontWeight: 500, cursor: "pointer" }}>Descargar catálogo PDF</button>
-        </div>
+            <div style={{ marginTop: 30, display: "flex", flexDirection: "column", gap: 11, animation: "tecUp .6s .26s ease both" }}>
+              <button onClick={onQuote} disabled={loading} style={{ width: "100%", padding: 16, border: "none", borderRadius: 14, background: loading ? "#0e9155" : COLOR.green, color: "#fff", fontSize: 15.5, fontWeight: 600, cursor: loading ? "wait" : "pointer", boxShadow: "0 14px 32px -12px rgba(18,183,106,.6)", opacity: loading ? 0.85 : 1 }}>{loading ? "Generando cotización…" : "Solicitar cotización"}</button>
+              <button onClick={onReset} disabled={loading} style={{ width: "100%", padding: 16, border: "1px solid rgba(255,255,255,.18)", borderRadius: 14, background: "rgba(255,255,255,.06)", color: "#fff", fontSize: 15.5, fontWeight: 600, cursor: "pointer" }}>Agendar reunión</button>
+              <button onClick={onReset} disabled={loading} style={{ width: "100%", padding: 16, border: "1px solid rgba(255,255,255,.18)", borderRadius: 14, background: "transparent", color: "#c3ccdf", fontSize: 15.5, fontWeight: 500, cursor: "pointer" }}>Descargar catálogo PDF</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h2 style={{ margin: 0, color: "#fff", fontSize: 30, lineHeight: 1.14, fontWeight: 700, letterSpacing: "-.02em", textWrap: "balance", animation: "tecUp .5s ease both" }}>
+              {downloaded ? "¡Su cotización está lista!" : "¡Gracias por su interés!"}
+            </h2>
+            <p style={{ margin: "16px 0 0", color: "#98a2bd", fontSize: 15.5, lineHeight: 1.55, animation: "tecUp .5s .06s ease both" }}>
+              {downloaded
+                ? "Su cotización se descargó automáticamente. Si no la ve, revise las descargas de su navegador — también le llegará seguimiento de un asesor."
+                : "Registramos su solicitud. Uno de nuestros asesores preparará su cotización y se la enviará a la brevedad."}
+            </p>
+            <div style={{ marginTop: 30, animation: "tecUp .5s .12s ease both" }}>
+              <button onClick={onReset} style={{ width: "100%", padding: 16, border: "none", borderRadius: 14, background: COLOR.blue, color: "#fff", fontSize: 15.5, fontWeight: 600, cursor: "pointer", boxShadow: "0 14px 32px -12px rgba(10,102,255,.6)" }}>Finalizar</button>
+            </div>
+          </>
+        )}
         <div style={{ flex: 1 }} />
         <p style={{ textAlign: "center", margin: "30px 0 0", color: "#59657f", fontSize: 12 }}>
           Tecology · Soluciones tecnológicas para empresas · <Link href="/admin" style={{ color: "#6ea0ff" }}>Panel admin</Link>
