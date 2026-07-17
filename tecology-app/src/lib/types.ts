@@ -34,6 +34,9 @@ export interface Product {
   includes?: ComboItem[];
   /** IDs de los tipos de uso a los que aplica este producto. */
   uses?: string[];
+  /** Artículo de Zoho Books vinculado (para generar cotizaciones reales). */
+  zohoItemId?: string;
+  zohoItemName?: string;
 }
 
 export interface Category {

@@ -98,7 +98,8 @@ export default function CatalogApp() {
       .then((id) => setLeadId(id))
       .catch(() => {});
   };
-  const requestQuote = () => {
+  const [quoting, setQuoting] = useState(false);
+  const requestQuote = async () => {
     if (leadId) {
       void store
         .updateLead(leadId, {
@@ -106,6 +107,48 @@ export default function CatalogApp() {
           segundos: navStart ? Math.round((Date.now() - navStart) / 1000) : null,
         })
         .catch(() => {});
+    }
+    // Intenta generar una cotización real en Zoho (si está configurado) y
+    // descargar su PDF. Si Zoho no está listo o falla, no se interrumpe la
+    // experiencia del visitante: igual se cierra el flujo con normalidad.
+    const favoriteProducts = favs
+      .map((id) => {
+        for (const k of Object.keys(data.categories)) {
+          const p = data.categories[k].plans.find((x) => x.id === id);
+          if (p) return p;
+        }
+        return null;
+      })
+      .filter((p): p is Product => !!p);
+
+    if (favoriteProducts.length > 0 && form.correo.trim()) {
+      setQuoting(true);
+      try {
+        const res = await fetch("/api/zoho/quote", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nombre: form.nombre, apellido: form.apellido, empresa: form.empresa,
+            cargo: form.cargo, correo: form.correo, codigo: form.codigo, telefono: form.telefono,
+            items: favoriteProducts.map((p) => ({ zohoItemId: p.zohoItemId, name: p.name, price: p.price, qty: 1 })),
+          }),
+        });
+        if (res.ok) {
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "cotizacion-tecology.pdf";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 4000);
+        }
+      } catch (e) {
+        console.error("Tecology: no se pudo generar la cotización en Zoho", e);
+      } finally {
+        setQuoting(false);
+      }
     }
     reset();
   };
@@ -240,6 +283,7 @@ export default function CatalogApp() {
                   favList={favProducts(data, favs)}
                   onQuote={requestQuote}
                   onReset={reset}
+                  quoting={quoting}
                 />
               )}
             </motion.div>
@@ -803,11 +847,12 @@ function Detail({
 // Pantalla final
 // ===========================================================================
 function Final({
-  favList, onQuote, onReset,
+  favList, onQuote, onReset, quoting,
 }: {
   favList: { name: string; price: string }[];
   onQuote: () => void;
   onReset: () => void;
+  quoting: boolean;
 }) {
   return (
     <div className="tec-scroll" style={{ position: "absolute", inset: 0, overflowY: "auto", background: "radial-gradient(120% 70% at 50% 0%, #0e1e3e 0%, #070b16 62%, #05070d 100%)", animation: "tecFade .5s ease both" }}>
@@ -829,7 +874,7 @@ function Final({
         )}
 
         <div style={{ marginTop: 30, display: "flex", flexDirection: "column", gap: 11, animation: "tecUp .6s .26s ease both" }}>
-          <button onClick={onQuote} style={{ width: "100%", padding: 16, border: "none", borderRadius: 14, background: COLOR.green, color: "#fff", fontSize: 15.5, fontWeight: 600, cursor: "pointer", boxShadow: "0 14px 32px -12px rgba(18,183,106,.6)" }}>Solicitar cotización</button>
+          <button onClick={onQuote} disabled={quoting} style={{ width: "100%", padding: 16, border: "none", borderRadius: 14, background: quoting ? "#0e9155" : COLOR.green, color: "#fff", fontSize: 15.5, fontWeight: 600, cursor: quoting ? "wait" : "pointer", boxShadow: "0 14px 32px -12px rgba(18,183,106,.6)", opacity: quoting ? 0.85 : 1 }}>{quoting ? "Generando cotización…" : "Solicitar cotización"}</button>
           <button onClick={onReset} style={{ width: "100%", padding: 16, border: "1px solid rgba(255,255,255,.18)", borderRadius: 14, background: "rgba(255,255,255,.06)", color: "#fff", fontSize: 15.5, fontWeight: 600, cursor: "pointer" }}>Agendar reunión</button>
           <button onClick={onReset} style={{ width: "100%", padding: 16, border: "1px solid rgba(255,255,255,.18)", borderRadius: 14, background: "transparent", color: "#c3ccdf", fontSize: 15.5, fontWeight: 500, cursor: "pointer" }}>Descargar catálogo PDF</button>
         </div>

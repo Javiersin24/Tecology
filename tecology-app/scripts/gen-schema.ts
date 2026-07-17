@@ -29,11 +29,15 @@ create table if not exists public.products (
   includes   jsonb,
   uses       jsonb not null default '[]'::jsonb,
   sort       integer not null default 0,
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  zoho_item_id   text,
+  zoho_item_name text
 );
 
--- Migración segura si la tabla ya existía sin la columna services:
+-- Migraciones seguras si la tabla ya existía sin estas columnas:
 alter table public.products add column if not exists services jsonb not null default '[]'::jsonb;
+alter table public.products add column if not exists zoho_item_id text;
+alter table public.products add column if not exists zoho_item_name text;
 
 create table if not exists public.use_cases (
   id    text primary key,

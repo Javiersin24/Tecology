@@ -1,14 +1,22 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { store } from "@/lib/store";
 import { useCatalogData, useLeads } from "@/lib/useStore";
 import { DEFAULT_SERVICES, EMPTY_CATALOG } from "@/lib/seed";
 import { COLOR } from "@/lib/theme";
+import { supabase } from "@/lib/supabaseClient";
 import type { CatalogData, Product, Spec, Tier, UseCase } from "@/lib/types";
 
-type Tab = "productos" | "usos" | "leads";
+/** Token de la sesión admin, para llamar a los endpoints protegidos (/api/admin/*). */
+async function adminToken(): Promise<string | null> {
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token ?? null;
+}
+
+type Tab = "productos" | "usos" | "leads" | "zoho";
 type CatKey = "laptops" | "desktop" | "combos" | "monitores";
 
 const CAT_META: { key: CatKey; label: string }[] = [
@@ -28,6 +36,7 @@ interface Draft {
   name: string; model: string; price: string; tier: Tier; warranty: string;
   img: string; ideal: string; specs: Spec[]; featuresText: string;
   servicesText: string; includesText: string; uses: string[];
+  zohoItemId: string; zohoItemName: string;
 }
 interface UseDraft { icon: string; name: string; desc: string }
 
@@ -43,7 +52,7 @@ function blankDraft(cat: CatKey): Draft {
   const specs: Spec[] = cat === "combos"
     ? [{ k: "Equipo", v: "" }, { k: "Monitor", v: "" }, { k: "Periféricos", v: "" }, { k: "Extra", v: "" }]
     : [{ k: "Procesador", v: "" }, { k: "Memoria", v: "" }, { k: "Almacenamiento", v: "" }, { k: "Pantalla", v: "" }];
-  return { name: "", model: "", price: "$", tier: "Básico", warranty: "Garantía 1 año", img: "", ideal: "", specs, featuresText: "", servicesText: DEFAULT_SERVICES.join("\n"), includesText: "", uses: [] };
+  return { name: "", model: "", price: "$", tier: "Básico", warranty: "Garantía 1 año", img: "", ideal: "", specs, featuresText: "", servicesText: DEFAULT_SERVICES.join("\n"), includesText: "", uses: [], zohoItemId: "", zohoItemName: "" };
 }
 
 function slug(name: string): string {
@@ -90,6 +99,7 @@ export default function AdminApp({ onSignOut }: { onSignOut?: () => void }) {
           servicesText: (p.services && p.services.length ? p.services : DEFAULT_SERVICES).join("\n"),
           includesText: (p.includes || []).map((i) => (i.icon ? i.icon + " " : "") + i.label).join("\n"),
           uses: Array.isArray(p.uses) ? [...p.uses] : [],
+          zohoItemId: p.zohoItemId || "", zohoItemName: p.zohoItemName || "",
         }
       : blankDraft(c);
     while (d.specs.length < 4) d.specs.push({ k: "", v: "" });
@@ -115,6 +125,7 @@ export default function AdminApp({ onSignOut }: { onSignOut?: () => void }) {
         warranty: draft.warranty, img: draft.img, ideal: draft.ideal, features, services,
         specs: draft.specs.filter((s) => s.k && s.v),
         uses: Array.isArray(draft.uses) ? draft.uses : [],
+        zohoItemId: draft.zohoItemId || undefined, zohoItemName: draft.zohoItemName || undefined,
       };
       if (includes && includes.length) prod.includes = includes;
       if (editId) {
@@ -251,7 +262,7 @@ export default function AdminApp({ onSignOut }: { onSignOut?: () => void }) {
 
         {/* Tabs */}
         <div style={{ display: "inline-flex", background: "#e9eaef", borderRadius: 13, padding: 4, marginBottom: 22 }}>
-          {([["productos", "Catálogo"], ["usos", "Tipos de uso"], ["leads", "Clientes potenciales"]] as [Tab, string][]).map(([key, label]) => {
+          {([["productos", "Catálogo"], ["usos", "Tipos de uso"], ["leads", "Clientes potenciales"], ["zoho", "Cotizaciones (Zoho)"]] as [Tab, string][]).map(([key, label]) => {
             const on = tab === key;
             return (
               <button key={key} onClick={() => setTab(key)} style={{ padding: "9px 20px", borderRadius: 10, border: "none", background: on ? "#fff" : "transparent", color: on ? COLOR.ink : COLOR.muted, fontSize: 13.5, fontWeight: 600, cursor: "pointer", boxShadow: on ? "0 2px 8px -2px rgba(0,0,0,.15)" : "none", transition: "all .2s" }}>{label}</button>
@@ -433,6 +444,9 @@ export default function AdminApp({ onSignOut }: { onSignOut?: () => void }) {
             </div>
           </>
         )}
+
+        {/* ZOHO SETTINGS */}
+        {tab === "zoho" && <ZohoSettingsPanel />}
       </div>
 
       {/* PRODUCT MODAL */}
@@ -501,6 +515,13 @@ export default function AdminApp({ onSignOut }: { onSignOut?: () => void }) {
                 <textarea value={draft.includesText} onChange={(e) => setDraft({ ...draft, includesText: e.target.value })} rows={4} placeholder={'💻 Laptop ThinkPad\n🖥 Monitor 24"'} style={areaStyle} />
               </div>
             )}
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>Vincular con artículo de Zoho <span style={{ color: "#adb2bd", fontWeight: 400 }}>— para que &ldquo;Solicitar cotización&rdquo; genere una cotización real</span></label>
+              <ZohoLinkPicker
+                value={draft.zohoItemId ? { id: draft.zohoItemId, name: draft.zohoItemName } : null}
+                onChange={(item) => setDraft({ ...draft, zohoItemId: item?.id || "", zohoItemName: item?.name || "" })}
+              />
+            </div>
             <label style={labelStyle}>Imagen del producto</label>
             <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
               <div style={{ width: 100, height: 72, borderRadius: 12, overflow: "hidden", background: "repeating-linear-gradient(135deg,#f1f3f8,#f1f3f8 8px,#e9edf4 8px,#e9edf4 16px)", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 100px" }}>
@@ -556,6 +577,184 @@ export default function AdminApp({ onSignOut }: { onSignOut?: () => void }) {
           </div>
         </ModalShell>
       )}
+    </div>
+  );
+}
+
+// ---- vínculo con artículo de Zoho ------------------------------------------
+interface ZohoItem { id: string; name: string; rate?: number; sku?: string }
+
+function ZohoLinkPicker({ value, onChange }: { value: ZohoItem | null; onChange: (item: ZohoItem | null) => void }) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const [results, setResults] = useState<ZohoItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    const t = setTimeout(async () => {
+      setLoading(true); setErr(null);
+      const token = await adminToken();
+      if (!token) { setErr("Sesión no disponible."); setLoading(false); return; }
+      try {
+        const res = await fetch(`/api/admin/zoho-items?search=${encodeURIComponent(query)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const body = await res.json();
+        if (!alive) return;
+        if (!res.ok) throw new Error(body.error || "Error buscando en Zoho.");
+        setResults(body.items || []);
+      } catch (e) {
+        if (alive) setErr(e instanceof Error ? e.message : "No se pudo conectar con Zoho.");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    }, 300);
+    return () => { alive = false; clearTimeout(t); };
+  }, [query, open]);
+
+  if (value && !open) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 13px", border: "1px solid #d6e4ff", background: "#eef3ff", borderRadius: 11, fontSize: 13 }}>
+        <span style={{ color: COLOR.blue, fontWeight: 600 }}>✓ {value.name}</span>
+        <button type="button" onClick={() => setOpen(true)} style={{ marginLeft: "auto", padding: "5px 10px", borderRadius: 8, border: "1px solid #dcdce2", background: "#fff", color: "#3a3a3f", fontSize: 12, cursor: "pointer" }}>Cambiar</button>
+        <button type="button" onClick={() => onChange(null)} style={{ padding: "5px 10px", borderRadius: 8, border: "1px solid #f1d5d5", background: "#fdf2f2", color: "#c0392b", fontSize: 12, cursor: "pointer" }}>Quitar</button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ position: "relative" }}>
+      <input
+        value={query}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        placeholder="Buscar artículo en Zoho por nombre…"
+        style={inputStyle}
+      />
+      {open && (
+        <div style={{ marginTop: 6, border: "1px solid #e6e6ec", borderRadius: 11, background: "#fff", maxHeight: 220, overflowY: "auto", boxShadow: "0 12px 28px -14px rgba(0,0,0,.25)" }}>
+          {loading && <div style={{ padding: 12, fontSize: 12.5, color: COLOR.muted2 }}>Buscando…</div>}
+          {!loading && err && <div style={{ padding: 12, fontSize: 12.5, color: "#c0392b" }}>{err}</div>}
+          {!loading && !err && results.length === 0 && <div style={{ padding: 12, fontSize: 12.5, color: COLOR.muted2 }}>Sin resultados. Escribe para buscar.</div>}
+          {!loading && results.map((it) => (
+            <button
+              key={it.id}
+              type="button"
+              onClick={() => { onChange(it); setOpen(false); setQuery(""); }}
+              style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 13px", border: "none", borderTop: "1px solid #f0f0f4", background: "#fff", cursor: "pointer", fontSize: 13 }}
+            >
+              <div style={{ fontWeight: 600, color: COLOR.ink }}>{it.name}</div>
+              <div style={{ fontSize: 11.5, color: COLOR.muted2 }}>{it.sku ? it.sku + " · " : ""}{it.rate != null ? `$${it.rate}` : ""}</div>
+            </button>
+          ))}
+          <button type="button" onClick={() => setOpen(false)} style={{ display: "block", width: "100%", textAlign: "center", padding: "8px", border: "none", borderTop: "1px solid #f0f0f4", background: "#fafbfc", color: COLOR.muted, cursor: "pointer", fontSize: 12 }}>Cerrar</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---- configuración de Zoho (ayudante de conexión OAuth) --------------------
+function ZohoSettingsPanel() {
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
+  const [grantToken, setGrantToken] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [refreshToken, setRefreshToken] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const connect = async () => {
+    setErr(null); setRefreshToken(null); setBusy(true);
+    try {
+      const token = await adminToken();
+      if (!token) throw new Error("Sesión no disponible. Vuelve a iniciar sesión.");
+      const res = await fetch("/api/admin/zoho-connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ clientId: clientId.trim(), clientSecret: clientSecret.trim(), grantToken: grantToken.trim() }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "No se pudo conectar.");
+      setRefreshToken(body.refreshToken);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "No se pudo conectar con Zoho.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const copyToken = () => {
+    if (!refreshToken) return;
+    navigator.clipboard?.writeText(refreshToken).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+  };
+
+  return (
+    <div>
+      <h2 style={{ margin: "0 0 6px", fontSize: 19, fontWeight: 700, letterSpacing: "-.01em" }}>Cotizaciones reales en Zoho Books</h2>
+      <p style={{ margin: "0 0 18px", color: COLOR.muted2, fontSize: 13.5, lineHeight: 1.5, maxWidth: 640 }}>
+        Cuando esto está conectado, cada visitante que toque <b>“Solicitar cotización”</b> genera una cotización real en tu Zoho Books y descarga su PDF. Este panel te ayuda a obtener el <b>refresh token</b> que necesitas — el resto de la conexión (las variables en Vercel) las agregas tú una sola vez.
+      </p>
+
+      <div style={bannerStyle}>
+        <span style={{ fontSize: 15 }}>1️⃣</span>
+        <p style={bannerText}>
+          Ve a <b>api-console.zoho.com</b> → <b>Add Client</b> → <b>Self Client</b>. Copia el <b>Client ID</b> y <b>Client Secret</b> que te da.
+        </p>
+      </div>
+      <div style={bannerStyle}>
+        <span style={{ fontSize: 15 }}>2️⃣</span>
+        <p style={bannerText}>
+          En la pestaña <b>Generate Code</b> del mismo Self Client, pon el scope <code>ZohoBooks.fullaccess.all</code>, duración 10 minutos, y genera un <b>Grant Token</b>. Úsalo aquí abajo <b>rápido</b> — caduca en pocos minutos y solo sirve una vez.
+        </p>
+      </div>
+
+      <div style={{ display: "grid", gap: 12, maxWidth: 480, marginTop: 4, marginBottom: 6 }}>
+        <div><label style={labelStyle}>Client ID</label><input value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="1000.XXXXXXXXXXXXXXXX" style={inputStyle} /></div>
+        <div><label style={labelStyle}>Client Secret</label><input value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} placeholder="••••••••••••••••" style={inputStyle} /></div>
+        <div><label style={labelStyle}>Grant Token</label><input value={grantToken} onChange={(e) => setGrantToken(e.target.value)} placeholder="1000.xxxx...xxxx" style={inputStyle} /></div>
+      </div>
+
+      <button
+        onClick={connect}
+        disabled={busy || !clientId || !clientSecret || !grantToken}
+        style={{ padding: "12px 22px", border: "none", borderRadius: 12, background: busy ? "#7ba7ff" : COLOR.blue, color: "#fff", fontSize: 14, fontWeight: 600, cursor: busy ? "wait" : "pointer", opacity: !clientId || !clientSecret || !grantToken ? 0.5 : 1 }}
+      >
+        {busy ? "Conectando…" : "Conectar con Zoho"}
+      </button>
+
+      {err && <div style={{ marginTop: 14, color: "#c0392b", fontSize: 13, maxWidth: 480 }}>{err}</div>}
+
+      {refreshToken && (
+        <div style={{ marginTop: 20, background: "#eef9f1", border: "1px solid #b9e6c6", borderRadius: 13, padding: "16px 18px", maxWidth: 640 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#0e9155", marginBottom: 8 }}>✓ Conectado — copia este refresh token</div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <code style={{ flex: 1, padding: "10px 12px", background: "#fff", border: "1px solid #d6e4ff", borderRadius: 9, fontSize: 12, wordBreak: "break-all" }}>{refreshToken}</code>
+            <button onClick={copyToken} style={{ padding: "10px 14px", borderRadius: 9, border: "none", background: COLOR.blue, color: "#fff", fontSize: 12.5, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>{copied ? "¡Copiado!" : "Copiar"}</button>
+          </div>
+          <p style={{ margin: "12px 0 0", fontSize: 12.5, color: "#33507d", lineHeight: 1.6 }}>
+            En Vercel → tu proyecto → <b>Settings → Environment Variables</b>, agrega:
+          </p>
+          <pre style={{ margin: "8px 0 0", padding: 12, background: "#fff", border: "1px solid #d6e4ff", borderRadius: 9, fontSize: 11.5, lineHeight: 1.7, overflowX: "auto" }}>
+{`ZOHO_CLIENT_ID=${clientId}
+ZOHO_CLIENT_SECRET=${clientSecret}
+ZOHO_REFRESH_TOKEN=${refreshToken}
+ZOHO_ORGANIZATION_ID=890449919
+ZOHO_TAX_ID=6580479000000259031`}
+          </pre>
+          <p style={{ margin: "10px 0 0", fontSize: 12.5, color: "#33507d" }}>Luego <b>Redeploy</b> el último despliegue para que tomen efecto.</p>
+        </div>
+      )}
+
+      <div style={{ marginTop: 26, paddingTop: 20, borderTop: "1px solid #ececf1", maxWidth: 640 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Antes de activarlo</div>
+        <p style={{ margin: 0, fontSize: 12.5, color: COLOR.muted2, lineHeight: 1.6 }}>
+          Vincula cada producto con su artículo real de Zoho desde <b>Catálogo → Editar producto → “Vincular con artículo de Zoho”</b>. Los productos sin vincular igual aparecen en la cotización (con su nombre y precio del catálogo), pero vincularlos mantiene tu inventario y reportes en Zoho más precisos.
+        </p>
+      </div>
     </div>
   );
 }

@@ -24,6 +24,9 @@ interface ProductRow {
   includes: Product["includes"] | null;
   uses: string[] | null;
   sort: number | null;
+  /** Omitidos en reset(): un "Restaurar demo" no debe borrar vínculos de Zoho ya guardados. */
+  zoho_item_id?: string | null;
+  zoho_item_name?: string | null;
 }
 
 interface LeadRow {
@@ -62,6 +65,8 @@ function rowToProduct(r: ProductRow): Product {
     services: Array.isArray(r.services) ? r.services : [],
     includes: r.includes && r.includes.length ? r.includes : undefined,
     uses: Array.isArray(r.uses) ? r.uses : [],
+    zohoItemId: r.zoho_item_id || undefined,
+    zohoItemName: r.zoho_item_name || undefined,
   };
 }
 
@@ -145,6 +150,7 @@ export class SupabaseDataStore implements DataStore {
           warranty: p.warranty, ideal: p.ideal, img: p.img, active: p.active !== false,
           specs: p.specs, features: p.features, services: p.services ?? [], includes: p.includes ?? null,
           uses: p.uses ?? [], sort: i,
+          zoho_item_id: p.zohoItemId || null, zoho_item_name: p.zohoItemName || null,
         });
       });
     }

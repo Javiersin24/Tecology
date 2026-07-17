@@ -97,6 +97,47 @@ En `/admin` → pestaña **Catálogo**:
   según lo que elija el visitante en el registro.
 - El interruptor verde **activa/desactiva** un producto en el catálogo.
 
+## 7) Cotizaciones reales en Zoho Books (opcional)
+
+Cuando esto está conectado, cada vez que un visitante toca **"Solicitar cotización"** se
+crea una cotización real en tu Zoho Books (con sus productos favoritos) y descarga el PDF
+al instante. Sin esto configurado, el botón sigue funcionando igual — solo que no genera
+el PDF de Zoho.
+
+### 7.1 Vincula tus productos con artículos de Zoho
+
+En `/admin` → **Catálogo** → **Editar** un producto → **"Vincular con artículo de Zoho"**,
+busca y selecciona el artículo real. Un producto sin vincular igual aparece en la
+cotización (con su nombre y precio del catálogo), pero vincularlo mantiene tu inventario
+sincronizado.
+
+### 7.2 Conecta tu cuenta de Zoho (una sola vez)
+
+1. Ve a **https://api-console.zoho.com** → **Add Client** → **Self Client**. Copia el
+   **Client ID** y **Client Secret**.
+2. En la pestaña **Generate Code** del mismo Self Client: scope
+   `ZohoBooks.fullaccess.all`, duración 10 minutos → **Create** → copia el **Grant Token**
+   (caduca en pocos minutos y solo sirve una vez).
+3. En tu app, ve a `/admin` → pestaña **Cotizaciones (Zoho)**, pega esos 3 valores y dale
+   **Conectar con Zoho**. Te va a mostrar un **refresh token** — cópialo.
+4. En Vercel → tu proyecto → **Settings → Environment Variables**, agrega:
+
+   ```
+   ZOHO_CLIENT_ID=(el que copiaste)
+   ZOHO_CLIENT_SECRET=(el que copiaste)
+   ZOHO_REFRESH_TOKEN=(el que te mostró el panel)
+   ZOHO_ORGANIZATION_ID=890449919
+   ZOHO_TAX_ID=6580479000000259031
+   ```
+
+   (`ZOHO_ORGANIZATION_ID` y `ZOHO_TAX_ID` — el ID del impuesto ITBMS — ya están resueltos
+   arriba para la organización **Tecnopcpty**; si usas otra organización de Zoho, ajústalos.)
+
+5. **Deployments** → el más reciente → **⋯ → Redeploy**.
+
+El refresh token no caduca (a menos que lo revoques desde Zoho), así que este paso se hace
+una sola vez.
+
 ## Notas de seguridad
 
 - Las claves `NEXT_PUBLIC_*` son **públicas** por diseño; lo que protege los datos son las
@@ -104,6 +145,10 @@ En `/admin` → pestaña **Catálogo**:
   registro, pero **solo tu usuario autenticado** puede editar productos y ver/exportar los
   datos de los clientes.
 - ¿Necesitas más de un administrador? Repite el paso 3 con otro correo.
+- Las variables `ZOHO_*` (a diferencia de las de Supabase) son **secretas de verdad**:
+  nunca empiezan con `NEXT_PUBLIC_` y solo se usan en el servidor (Route Handlers). El
+  navegador del visitante nunca las recibe. La búsqueda de artículos de Zoho en el panel
+  admin también exige una sesión válida antes de responder.
 
 ## Regenerar el SQL (si cambias los datos de ejemplo)
 

@@ -44,6 +44,12 @@ implementaciones que la app elige **automáticamente**:
 Vercel, ~10 min). El esquema completo está en `supabase/schema.sql` (una sola pegada en el
 editor SQL de Supabase). Los datos de ejemplo viven en `src/lib/seed.ts`.
 
+## Cotizaciones reales en Zoho Books (opcional)
+
+Con las variables `ZOHO_*` configuradas (servidor, nunca `NEXT_PUBLIC_*`), "Solicitar
+cotización" crea una cotización real en Zoho Books y descarga su PDF — ver la sección 7 de
+`SETUP.md`. Sin esto, ese botón sigue funcionando (solo que no genera el PDF de Zoho).
+
 ## Estructura
 
 ```
@@ -51,17 +57,25 @@ src/
   app/
     layout.tsx            # fuente, metadata, icono
     page.tsx              # ruta del catálogo
-    admin/page.tsx        # ruta del panel admin
-    globals.css           # reset, keyframes, contenedor responsive
+    admin/page.tsx         # ruta del panel admin
+    globals.css            # reset, keyframes, contenedor responsive
+    error.tsx               # pantalla de error legible (en vez del crash del navegador)
+    api/
+      zoho/quote/route.ts        # público: crea la cotización real + PDF
+      admin/zoho-items/route.ts  # admin: buscar artículos de Zoho para vincular
+      admin/zoho-connect/route.ts # admin: intercambia grant token → refresh token
   components/
     catalog/CatalogApp.tsx  # máquina de estados + 6 pantallas del flujo
-    admin/AdminApp.tsx      # dashboard: productos, tipos de uso, leads
+    admin/AdminApp.tsx      # dashboard: productos, tipos de uso, leads, Zoho
+    admin/AdminGate.tsx     # login (Supabase Auth) delante del panel
   lib/
     types.ts              # tipos de dominio
     seed.ts               # datos semilla (demo)
     store.ts              # capa de datos (DataStore) — punto de swap a Supabase
     useStore.ts           # hooks reactivos
     theme.ts              # tokens de color, metadatos de categorías, códigos de país
+    zoho.ts               # cliente Zoho Books (solo servidor — server-only)
+    adminAuth.ts           # verifica la sesión admin en las rutas /api/admin/*
 public/brand/             # logos (mark + wordmark, fondo transparente)
 ```
 
