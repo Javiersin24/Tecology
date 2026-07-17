@@ -32,6 +32,11 @@ export async function POST(req: Request) {
     const sp = await createSalesperson(name, email);
     return NextResponse.json({ ok: true, message: `Vendedor "${sp.salesperson_name || name}" creado. Ya puedes generar cotizaciones. (Vuelve a tocar "Probar conexión" para confirmar.)` });
   } catch (e) {
-    return NextResponse.json({ ok: false, message: e instanceof Error ? e.message : "No se pudo crear el vendedor." });
+    const msg = e instanceof Error ? e.message : "No se pudo crear el vendedor.";
+    // "ya existe" = perfecto: hay un vendedor disponible aunque el listado no lo muestre.
+    if (/ya existe|already exists|duplicate/i.test(msg)) {
+      return NextResponse.json({ ok: true, message: `El vendedor "${name}" ya existe en tu Zoho — perfecto. Las cotizaciones lo usarán automáticamente. Toca "Probar conexión" para confirmar.` });
+    }
+    return NextResponse.json({ ok: false, message: msg });
   }
 }

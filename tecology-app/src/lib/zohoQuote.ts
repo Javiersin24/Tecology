@@ -7,8 +7,9 @@ import { zohoFetch, zohoJson, ZOHO_TAX_ID } from "./zoho";
 // camino de código.
 
 // Algunas organizaciones de Zoho exigen un "Vendedor" (salesperson) en cada
-// cotización. Si defines ZOHO_SALESPERSON_ID se usa ese; si no, se toma el
-// primer vendedor de la cuenta. Solo se cachea un resultado válido.
+// cotización. Nombre por defecto del vendedor (el que crea "Crear vendedor").
+const SALESPERSON_NAME = process.env.ZOHO_SALESPERSON_NAME?.trim() || "Tecology";
+
 export interface ZohoSalesperson {
   salesperson_id: string;
   salesperson_name?: string;
@@ -32,21 +33,26 @@ export async function createSalesperson(name: string, email?: string): Promise<Z
   return created.salesperson;
 }
 
-async function getSalespersonId(): Promise<string | null> {
-  if (cachedSalespersonId) return cachedSalespersonId;
-  const fromEnv = process.env.ZOHO_SALESPERSON_ID?.trim();
-  if (fromEnv) {
-    cachedSalespersonId = fromEnv;
-    return cachedSalespersonId;
-  }
+// Resuelve el vendedor a incluir en la cotización. Prioridad:
+//   1. ZOHO_SALESPERSON_ID (si lo fijaste)
+//   2. el primer vendedor del listado (cuando el listado sí funciona)
+//   3. por NOMBRE (SALESPERSON_NAME) — Zoho lo asocia si existe. Esto cubre el
+//      caso en que GET /salespersons devuelve vacío pero el vendedor sí existe.
+async function resolveSalesperson(): Promise<{ salesperson_id: string } | { salesperson_name: string }> {
+  const envId = process.env.ZOHO_SALESPERSON_ID?.trim();
+  if (envId) return { salesperson_id: envId };
+  if (cachedSalespersonId) return { salesperson_id: cachedSalespersonId };
   try {
     const list = await listSalespersons();
     const active = list.find((s) => s.status !== "inactive") || list[0];
-    if (active?.salesperson_id) cachedSalespersonId = active.salesperson_id;
-    return cachedSalespersonId;
+    if (active?.salesperson_id) {
+      cachedSalespersonId = active.salesperson_id;
+      return { salesperson_id: cachedSalespersonId };
+    }
   } catch {
-    return null; // no se cachea: se reintenta en la próxima petición
+    /* el listado falló o vino vacío: usamos el nombre como respaldo */
   }
+  return { salesperson_name: SALESPERSON_NAME };
 }
 
 export interface QuoteItemInput {
@@ -136,7 +142,7 @@ export async function createZohoQuote(input: QuoteInput): Promise<{ estimateId: 
     input.renovar ? `¿Planea renovar equipos?: ${input.renovar}` : null,
   ].filter(Boolean);
 
-  const salespersonId = await getSalespersonId();
+  const salesperson = await resolveSalesperson();
 
   const created = await zohoJson<{ estimate: { estimate_id: string; estimate_number?: string } }>(
     "/estimates?ignore_auto_number_generation=false",
@@ -145,7 +151,7 @@ export async function createZohoQuote(input: QuoteInput): Promise<{ estimateId: 
       body: JSON.stringify({
         customer_id: customerId,
         line_items: lineItems,
-        ...(salespersonId ? { salesperson_id: salespersonId } : {}),
+        ...salesperson,
         ...(noteLines.length ? { notes: noteLines.join("\n") } : {}),
       }),
     },

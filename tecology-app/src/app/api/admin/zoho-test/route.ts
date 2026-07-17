@@ -21,30 +21,19 @@ export async function POST(req: Request) {
     });
   }
 
-  // Paso 1 — vendedores (causa típica del error "Vendedor no puede estar vacío").
+  // Info de vendedores (no bloqueante: la cotización usa el nombre de respaldo
+  // si el listado viene vacío, así que igual intentamos crear la cotización).
   let salesInfo = "";
-  const hasEnvSalesperson = !!process.env.ZOHO_SALESPERSON_ID?.trim();
   try {
     const sps = await listSalespersons();
-    if (hasEnvSalesperson) {
-      salesInfo = `Usando el vendedor fijado en ZOHO_SALESPERSON_ID. (${sps.length} vendedor(es) en la cuenta.)`;
-    } else if (sps.length === 0) {
-      return NextResponse.json({
-        ok: false,
-        message: "Tu Zoho exige un vendedor en cada cotización, pero la cuenta no tiene ninguno. Crea un Vendedor en Zoho (Configuración → Vendedores) o define la variable ZOHO_SALESPERSON_ID en Vercel.",
-      });
-    } else {
-      const first = sps.find((s) => s.status !== "inactive") || sps[0];
-      salesInfo = `Vendedor asignado automáticamente: "${first.salesperson_name || first.salesperson_id}" (de ${sps.length} en la cuenta).`;
-    }
-  } catch (e) {
-    return NextResponse.json({
-      ok: false,
-      message: "No se pudo leer la lista de vendedores de Zoho: " + (e instanceof Error ? e.message : "error") + ". Revisa que el token tenga acceso completo (scope ZohoBooks.fullaccess.all).",
-    });
+    salesInfo = sps.length
+      ? `Vendedores en la cuenta: ${sps.length}.`
+      : `El listado de vendedores vino vacío; se usará el vendedor por nombre.`;
+  } catch {
+    salesInfo = "No se pudo leer el listado de vendedores; se usará el vendedor por nombre.";
   }
 
-  // Paso 2 — crear (y borrar) una cotización de prueba real.
+  // Crea (y borra) una cotización de prueba real.
   let estimateId: string | null = null;
   try {
     const created = await createZohoQuote({
