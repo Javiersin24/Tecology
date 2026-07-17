@@ -816,9 +816,12 @@ function ZohoSettingsPanel() {
 {`ZOHO_CLIENT_ID=${clientId}
 ZOHO_CLIENT_SECRET=${clientSecret}
 ZOHO_REFRESH_TOKEN=${refreshToken}
-ZOHO_ORGANIZATION_ID=890449919
-ZOHO_TAX_ID=6580479000000259031`}
+ZOHO_ORGANIZATION_ID=(el ID de tu organización en Zoho)
+ZOHO_TAX_ID=(el ID del impuesto a aplicar, ej. ITBMS/IVA)`}
           </pre>
+          <p style={{ margin: "10px 0 0", fontSize: 12.5, color: "#33507d", lineHeight: 1.6 }}>
+            El <b>Organization ID</b> lo ves en Zoho Books → Settings → Organization Profile (o en la URL, después de <code>/organization/</code>). El <b>Tax ID</b> lo obtienes en Settings → Taxes, abre el impuesto que quieras usar y cópialo de la URL.
+          </p>
           <p style={{ margin: "10px 0 0", fontSize: 12.5, color: "#33507d" }}>Luego <b>Redeploy</b> el último despliegue para que tomen efecto.</p>
         </div>
       )}

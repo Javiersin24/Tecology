@@ -126,12 +126,16 @@ sincronizado.
    ZOHO_CLIENT_ID=(el que copiaste)
    ZOHO_CLIENT_SECRET=(el que copiaste)
    ZOHO_REFRESH_TOKEN=(el que te mostró el panel)
-   ZOHO_ORGANIZATION_ID=890449919
-   ZOHO_TAX_ID=6580479000000259031
+   ZOHO_ORGANIZATION_ID=(el ID de tu organización en Zoho)
+   ZOHO_TAX_ID=(el ID del impuesto a aplicar, ej. ITBMS o IVA)
    ```
 
-   (`ZOHO_ORGANIZATION_ID` y `ZOHO_TAX_ID` — el ID del impuesto ITBMS — ya están resueltos
-   arriba para la organización **Tecnopcpty**; si usas otra organización de Zoho, ajústalos.)
+   - **`ZOHO_ORGANIZATION_ID`**: en Zoho Books → Settings → Organization Profile (o en la
+     URL, después de `/organization/`).
+   - **`ZOHO_TAX_ID`**: en Zoho Books → Settings → Taxes, abre el impuesto que quieras
+     aplicar por defecto y cópialo de la URL.
+   - Opcional: `ZOHO_SALESPERSON_ID` o `ZOHO_SALESPERSON_NAME` si tu organización exige un
+     vendedor en cada cotización (ver `/admin` → Cotizaciones (Zoho) → sección "Vendedor").
 
 5. **Deployments** → el más reciente → **⋯ → Redeploy**.
 
