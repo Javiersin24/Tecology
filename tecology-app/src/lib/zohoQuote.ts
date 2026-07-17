@@ -6,6 +6,29 @@ import { zohoFetch, zohoJson, ZOHO_TAX_ID } from "./zoho";
 // del panel admin (/api/admin/zoho-test), para que ambas ejerciten el MISMO
 // camino de código.
 
+// Algunas organizaciones de Zoho exigen un "Vendedor" (salesperson) en cada
+// cotización. Se resuelve una vez: si defines ZOHO_SALESPERSON_ID se usa ese;
+// si no, se toma el primer vendedor de la cuenta. Se cachea en memoria.
+let cachedSalespersonId: string | null | undefined;
+
+async function getSalespersonId(): Promise<string | null> {
+  if (cachedSalespersonId !== undefined) return cachedSalespersonId;
+  const fromEnv = process.env.ZOHO_SALESPERSON_ID?.trim();
+  if (fromEnv) {
+    cachedSalespersonId = fromEnv;
+    return cachedSalespersonId;
+  }
+  try {
+    const data = await zohoJson<{ salespersons: { salesperson_id: string; status?: string }[] }>("/salespersons");
+    const list = data.salespersons || [];
+    const active = list.find((s) => s.status !== "inactive") || list[0];
+    cachedSalespersonId = active?.salesperson_id ?? null;
+  } catch {
+    cachedSalespersonId = null;
+  }
+  return cachedSalespersonId;
+}
+
 export interface QuoteItemInput {
   zohoItemId?: string;
   name: string;
@@ -93,6 +116,8 @@ export async function createZohoQuote(input: QuoteInput): Promise<{ estimateId: 
     input.renovar ? `¿Planea renovar equipos?: ${input.renovar}` : null,
   ].filter(Boolean);
 
+  const salespersonId = await getSalespersonId();
+
   const created = await zohoJson<{ estimate: { estimate_id: string; estimate_number?: string } }>(
     "/estimates?ignore_auto_number_generation=false",
     {
@@ -100,6 +125,7 @@ export async function createZohoQuote(input: QuoteInput): Promise<{ estimateId: 
       body: JSON.stringify({
         customer_id: customerId,
         line_items: lineItems,
+        ...(salespersonId ? { salesperson_id: salespersonId } : {}),
         ...(noteLines.length ? { notes: noteLines.join("\n") } : {}),
       }),
     },
