@@ -111,17 +111,31 @@ export default function CatalogApp() {
     // Intenta generar una cotización real en Zoho (si está configurado) y
     // descargar su PDF. Si Zoho no está listo o falla, no se interrumpe la
     // experiencia del visitante: igual se cierra el flujo con normalidad.
-    const favoriteProducts = favs
-      .map((id) => {
-        for (const k of Object.keys(data.categories)) {
-          const p = data.categories[k].plans.find((x) => x.id === id);
-          if (p) return p;
-        }
-        return null;
-      })
-      .filter((p): p is Product => !!p);
+    //
+    // Marcar "favorito" nunca fue obligatorio para poder cotizar: se cotizan
+    // los favoritos si los hay, más el producto que se estaba viendo (si llegó
+    // aquí desde "Ver detalles"). Si no hay ni lo uno ni lo otro, se usa el
+    // plan Recomendado de la categoría actual como último recurso — así el
+    // botón "Solicitar cotización" siempre cotiza algo, sin pasos extra.
+    const findProduct = (id: string): Product | null => {
+      for (const k of Object.keys(data.categories)) {
+        const p = data.categories[k].plans.find((x) => x.id === id);
+        if (p) return p;
+      }
+      return null;
+    };
+    const quoteIds = new Set(favs);
+    if (productId) quoteIds.add(productId);
+    let quoteProducts = Array.from(quoteIds).map(findProduct).filter((p): p is Product => !!p);
+    if (quoteProducts.length === 0) {
+      const catKey = category || Object.keys(data.categories)[0];
+      const block = data.categories[catKey];
+      const activePlans = block?.plans.filter((p) => p.active !== false) ?? [];
+      const fallback = activePlans.find((p) => p.tier === "Recomendado") ?? activePlans[0];
+      if (fallback) quoteProducts = [fallback];
+    }
 
-    if (favoriteProducts.length > 0 && form.correo.trim()) {
+    if (quoteProducts.length > 0 && form.correo.trim()) {
       setQuoting(true);
       try {
         const res = await fetch("/api/zoho/quote", {
@@ -131,7 +145,7 @@ export default function CatalogApp() {
             nombre: form.nombre, apellido: form.apellido, empresa: form.empresa,
             cargo: form.cargo, correo: form.correo, codigo: form.codigo, telefono: form.telefono,
             colaboradores: form.colaboradores, renovar: renew,
-            items: favoriteProducts.map((p) => ({ zohoItemId: p.zohoItemId, name: p.name, price: p.price, qty: 1 })),
+            items: quoteProducts.map((p) => ({ zohoItemId: p.zohoItemId, name: p.name, price: p.price, qty: 1 })),
           }),
         });
         if (res.ok) {
